@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en" data-theme="forest">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>frontend</title>
+    <script>
+      try {
+        document.documentElement.dataset.theme =
+          localStorage.getItem("preferred-theme") || "forest";
+      } catch {
+        document.documentElement.dataset.theme = "forest";
+      }
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>

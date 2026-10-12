@@ -1,0 +1,287 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html {
+  scroll-behavior: smooth;
+}
+
+/* ── Landing Page animations ─────────────────────────────────── */
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(32px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes floatY {
+  0%, 100% { transform: translateY(0px); }
+  50%       { transform: translateY(-10px); }
+}
+
+@keyframes gradientShift {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+@keyframes shimmer {
+  0%   { transform: translateX(-100%) skewX(-12deg); }
+  100% { transform: translateX(250%) skewX(-12deg); }
+}
+
+@keyframes blobMove {
+  0%, 100% { border-radius: 60% 40% 30% 70% / 60% 30% 70% 40%; }
+  50%       { border-radius: 30% 60% 70% 40% / 50% 60% 30% 60%; }
+}
+
+/* Scroll-reveal helpers */
+.lp-hidden {
+  opacity: 0;
+  transform: translateY(28px);
+  transition: opacity 0.65s cubic-bezier(0.16,1,0.3,1), transform 0.65s cubic-bezier(0.16,1,0.3,1);
+}
+
+.lp-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.lp-hidden-left {
+  opacity: 0;
+  transform: translateX(-32px);
+  transition: opacity 0.7s cubic-bezier(0.16,1,0.3,1), transform 0.7s cubic-bezier(0.16,1,0.3,1);
+}
+
+.lp-hidden-right {
+  opacity: 0;
+  transform: translateX(32px);
+  transition: opacity 0.7s cubic-bezier(0.16,1,0.3,1), transform 0.7s cubic-bezier(0.16,1,0.3,1);
+}
+
+.lp-hidden-left.lp-visible,
+.lp-hidden-right.lp-visible {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+/* Hero entrance */
+.hero-animate {
+  animation: fadeInUp 0.8s cubic-bezier(0.16,1,0.3,1) both;
+}
+
+.hero-animate-delay-1 { animation-delay: 0.12s; }
+.hero-animate-delay-2 { animation-delay: 0.24s; }
+.hero-animate-delay-3 { animation-delay: 0.36s; }
+.hero-animate-delay-4 { animation-delay: 0.5s; }
+
+/* Floating icon */
+.float-anim {
+  animation: floatY 4s ease-in-out infinite;
+}
+
+/* Blob background */
+.blob {
+  animation: blobMove 8s ease-in-out infinite;
+}
+
+/* Animated gradient text */
+.gradient-text-anim {
+  background-size: 200% 200%;
+  animation: gradientShift 6s ease infinite;
+}
+
+/* Shimmer CTA button shine */
+.btn-shine::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(105deg, transparent 40%, rgba(255,255,255,0.18) 50%, transparent 60%);
+  animation: shimmer 2.8s ease-in-out infinite;
+}
+
+/* Feature card stagger delays */
+.feature-card:nth-child(1) { transition-delay: 0s; }
+.feature-card:nth-child(2) { transition-delay: 0.08s; }
+.feature-card:nth-child(3) { transition-delay: 0.16s; }
+.feature-card:nth-child(4) { transition-delay: 0.24s; }
+.feature-card:nth-child(5) { transition-delay: 0.32s; }
+
+@keyframes modalShow {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes dashboardEnter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes productCardEnter {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.99);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.modal[open] .modal-box {
+  animation: modalShow 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.dashboard-page {
+  animation: dashboardEnter 0.35s ease-out both;
+}
+
+.product-card {
+  overflow: hidden;
+  border: 1px solid hsl(var(--b3) / 0.55);
+  transform: translateZ(0);
+  transition:
+    transform 220ms cubic-bezier(0.2, 0.75, 0.25, 1),
+    box-shadow 220ms ease,
+    border-color 220ms ease;
+  animation: productCardEnter 420ms cubic-bezier(0.2, 0.75, 0.25, 1) both;
+}
+
+.product-card-image {
+  transition: transform 500ms cubic-bezier(0.2, 0.75, 0.25, 1);
+}
+
+.product-grid > .product-card:nth-of-type(2) {
+  animation-delay: 45ms;
+}
+
+.product-grid > .product-card:nth-of-type(3) {
+  animation-delay: 90ms;
+}
+
+.product-grid > .product-card:nth-of-type(4) {
+  animation-delay: 135ms;
+}
+
+.product-grid > .product-card:nth-of-type(5) {
+  animation-delay: 180ms;
+}
+
+.product-grid > .product-card:nth-of-type(6) {
+  animation-delay: 225ms;
+}
+
+.product-grid > .product-card:nth-of-type(7) {
+  animation-delay: 270ms;
+}
+
+.product-grid > .product-card:nth-of-type(8) {
+  animation-delay: 315ms;
+}
+
+.product-grid > .product-card:nth-of-type(9) {
+  animation-delay: 360ms;
+}
+
+.search-shell {
+  position: relative;
+}
+
+.search-shell input::placeholder {
+  color: hsl(var(--bc) / 0.45);
+}
+
+.theme-select-wrap {
+  background-color: hsl(var(--b1));
+  color: hsl(var(--bc));
+}
+
+.sort-dropdown-menu {
+  top: calc(100% + 8px);
+  right: 0;
+  max-height: 220px;
+  overflow-y: auto;
+  background-color: hsl(var(--b1));
+  border-color: hsl(var(--b3));
+  box-shadow: 0 18px 30px -22px hsl(var(--bc) / 0.45);
+}
+
+.sort-dropdown-menu::-webkit-scrollbar {
+  width: 8px;
+}
+
+.sort-dropdown-menu::-webkit-scrollbar-thumb {
+  background: hsl(var(--b3));
+  border-radius: 9999px;
+}
+
+.sort-option {
+  background-color: hsl(var(--b1));
+  color: hsl(var(--bc));
+  border: 0;
+}
+
+.sort-option:hover,
+.sort-option:focus-visible {
+  background-color: hsl(var(--b2));
+  color: hsl(var(--bc));
+  outline: none;
+}
+
+.sort-option + .sort-option {
+  border-top: 1px solid hsl(var(--b3));
+}
+
+.theme-select-wrap:hover {
+  border-color: hsl(var(--b3));
+}
+
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .product-card:hover,
+  .product-card:focus-within {
+    transform: translate3d(0, -5px, 0);
+    border-color: hsl(var(--p) / 0.42);
+    box-shadow: 0 18px 36px -20px hsl(var(--bc) / 0.45);
+  }
+
+  .product-card:hover .product-card-image,
+  .product-card:focus-within .product-card-image {
+    transform: scale(1.045);
+  }
+}
+
+button,
+.btn {
+  transition: transform 0.1s ease, filter 0.1s ease !important;
+}
+
+button:active,
+.btn:active {
+  transform: scale(0.96) !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}

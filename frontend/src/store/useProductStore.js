@@ -1,10 +1,7 @@
 import { create } from "zustand";
-import axios from "axios";
+import API from "../axios";
 import toast from "react-hot-toast";
 import { useAuthStore } from "./useAuthStore";
-
-// Base URL will be dynamic depending on the environment
-const BASE_URL = import.meta.env.MODE === "development" ? "http://localhost:3000" : "";
 const inFlightProductRequests = new Map();
 
 /**
@@ -76,7 +73,7 @@ export const useProductStore = create((set, get) => ({
                 formDataObj.append("image", formData.image);
             }
 
-            await axios.post(`${BASE_URL}/api/products`, formDataObj, {
+            await API.post(`/api/products`, formDataObj, {
                 headers: {
                     Authorization: `Bearer ${token}`,
                 },
@@ -152,7 +149,7 @@ export const useProductStore = create((set, get) => ({
                     category,
                     sort,
                 });
-                const response = await axios.get(`${BASE_URL}/api/products?${params.toString()}`);
+                const response = await API.get(`/api/products?${params.toString()}`);
                 if (get().productsRequestId !== requestId) return;
 
                 set({
@@ -199,7 +196,7 @@ export const useProductStore = create((set, get) => ({
         set({ loading: true });
         try {
             const token = useAuthStore.getState().token;
-            await axios.delete(`${BASE_URL}/api/products/${id}`, {
+            await API.delete(`/api/products/${id}`, {
                 headers: { Authorization: `Bearer ${token}` },
             });
 
@@ -230,7 +227,7 @@ export const useProductStore = create((set, get) => ({
         set({ loading: true });
         try {
             const token = useAuthStore.getState().token;
-            await axios.post(`${BASE_URL}/api/products/${id}/clone`, {}, {
+            await API.post(`/api/products/${id}/clone`, {}, {
                 headers: { Authorization: `Bearer ${token}` },
             });
 
@@ -258,7 +255,7 @@ export const useProductStore = create((set, get) => ({
             error: null,
         });
         try {
-            const response = await axios.get(`${BASE_URL}/api/products/${id}`);
+            const response = await API.get(`/api/products/${id}`);
             const product = normalizeProduct(response.data.data);
             set({
                 currentProduct: product,
@@ -325,7 +322,7 @@ export const useProductStore = create((set, get) => ({
                 formDataObj.append("image", formData.image);
             }
 
-            const response = await axios.put(`${BASE_URL}/api/products/${id}`, formDataObj, {
+            const response = await API.put(`/api/products/${id}`, formDataObj, {
                 headers: {
                     Authorization: `Bearer ${token}`,
                 },
@@ -370,7 +367,7 @@ export const useProductStore = create((set, get) => ({
     fetchLogs: async () => {
         set({ loadingLogs: true, logsError: null });
         try {
-            const response = await axios.get(`${BASE_URL}/api/products/logs`);
+            const response = await API.get(`/api/products/logs`);
             const logs = response.data?.data;
             if (!Array.isArray(logs)) {
                 throw new Error("The activity logs response is invalid");
@@ -397,7 +394,7 @@ export const useProductStore = create((set, get) => ({
                 category: category || "All",
                 sort: sort || "newest",
             });
-            const response = await axios.get(`${BASE_URL}/api/products?${params.toString()}`);
+            const response = await API.get(`/api/products?${params.toString()}`);
             const exportData = response.data?.data || state.products;
 
             if (!Array.isArray(exportData) || exportData.length === 0) {
@@ -446,7 +443,7 @@ export const useProductStore = create((set, get) => ({
                 category: category || "All",
                 sort: sort || "newest",
             });
-            const response = await axios.get(`${BASE_URL}/api/products?${params.toString()}`);
+            const response = await API.get(`/api/products?${params.toString()}`);
             const exportData = response.data?.data || state.products;
 
             if (!Array.isArray(exportData) || exportData.length === 0) {

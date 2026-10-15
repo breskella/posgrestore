@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { CheckCircleIcon, LockIcon, AlertTriangleIcon, ShieldCheckIcon } from "lucide-react";
-import axios from "axios";
+import API from "../axios";
 
 const ConfirmResetPage = () => {
   const { token } = useParams();
@@ -22,7 +22,7 @@ const ConfirmResetPage = () => {
     setMessage("Verifying your approval request...");
 
     try {
-      const response = await axios.post(`http://localhost:3000/api/auth/confirm-password-reset/${token}`);
+      const response = await API.post(`/api/auth/confirm-password-reset/${token}`);
 
       if (response.data.success && response.data.data?.resetToken) {
         setStatus("success");

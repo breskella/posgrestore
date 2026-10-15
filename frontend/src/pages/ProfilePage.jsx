@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { UserIcon, MailIcon, LockIcon, SaveIcon, ShieldCheckIcon } from "lucide-react";
 import toast from "react-hot-toast";
-import axios from "axios";
+import API from "../axios";
 import { useAuthStore } from "../store/useAuthStore";
 
 const ProfilePage = () => {
@@ -51,7 +51,7 @@ const ProfilePage = () => {
         ...(formData.password ? { password: formData.password } : {}),
       };
 
-      const response = await axios.put("http://localhost:3000/api/users/profile", profileData, {
+      const response = await API.put("/api/users/profile", profileData, {
         headers: { Authorization: `Bearer ${currentToken}` },
       });
 

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { LockIcon, CheckCircleIcon, ArrowLeftIcon } from "lucide-react";
 import toast from "react-hot-toast";
-import axios from "axios";
+import API from "../axios";
 
 const ResetPasswordPage = () => {
   const { token } = useParams();
@@ -32,7 +32,7 @@ const ResetPasswordPage = () => {
 
     setLoading(true);
     try {
-      const response = await axios.post(`http://localhost:3000/api/auth/reset-password/${token}`, {
+      const response = await API.post(`/api/auth/reset-password/${token}`, {
         password,
       });
 

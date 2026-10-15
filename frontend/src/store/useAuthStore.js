@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import API from "../axios"; 
 
 export const useAuthStore = create((set) => ({
   user: JSON.parse(localStorage.getItem("userInfo")) || null,
@@ -15,14 +16,8 @@ export const useAuthStore = create((set) => ({
   signup: async (userData) => {
     set({ isLoading: true, error: null });
     try {
-      const res = await fetch("http://localhost:3000/api/auth/signup", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(userData),
-      });
-      const data = await res.json();
-
-      if (!res.ok) throw new Error(data.message || "Failed to sign up");
+      const res = await API.post("/api/auth/signup", userData);
+      const data = res.data;
 
       localStorage.setItem("token", data.token);
       localStorage.setItem("userInfo", JSON.stringify(data.data));
@@ -30,8 +25,9 @@ export const useAuthStore = create((set) => ({
       set({ user: data.data, token: data.token, isLoading: false });
       return { success: true };
     } catch (error) {
-      set({ error: error.message, isLoading: false });
-      return { success: false, error: error.message };
+      const message = error.response?.data?.message || error.message || "Failed to sign up";
+      set({ error: message, isLoading: false });
+      return { success: false, error: message };
     }
   },
 
@@ -39,14 +35,8 @@ export const useAuthStore = create((set) => ({
   login: async (userData) => {
     set({ isLoading: true, error: null });
     try {
-      const res = await fetch("http://localhost:3000/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(userData),
-      });
-      const data = await res.json();
-
-      if (!res.ok) throw new Error(data.message || "Failed to log in");
+      const res = await API.post("/api/auth/login", userData);
+      const data = res.data;
 
       localStorage.setItem("token", data.token);
       localStorage.setItem("userInfo", JSON.stringify(data.data));
@@ -54,8 +44,9 @@ export const useAuthStore = create((set) => ({
       set({ user: data.data, token: data.token, isLoading: false });
       return { success: true };
     } catch (error) {
-      set({ error: error.message, isLoading: false });
-      return { success: false, error: error.message };
+      const message = error.response?.data?.message || error.message || "Failed to log in";
+      set({ error: message, isLoading: false });
+      return { success: false, error: message };
     }
   },
 

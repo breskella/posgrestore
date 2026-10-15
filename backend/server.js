@@ -84,8 +84,12 @@ const PORT = process.env.PORT || 3000;
 console.log(PORT);
 
 app.use(express.json());
-app.use(cors());
-
+app.use(
+    cors({
+        origin: true,
+        credentials: true,
+    })
+);
 // helmet is a security middleware that helps you protect your app by setting various HTTP headers
 app.use(helmet());
 

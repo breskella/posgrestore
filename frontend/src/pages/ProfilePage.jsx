@@ -77,9 +77,9 @@ const ProfilePage = () => {
 
           <button
             type="button"
-            onClick={() => navigate("/dashboard")}
+            onClick={() => navigate(user?.role === "customer" ? "/stores" : "/dashboard")}
             className="btn btn-ghost btn-sm gap-2 rounded-xl border border-base-content/10 hover:border-primary/40 hover:bg-base-200 text-base-content/80 hover:text-base-content transition-all duration-200 cursor-pointer shrink-0"
-            title="Back to Dashboard"
+            title="Back"
           >
             <ArrowLeftIcon className="size-4" />
             <span className="font-medium text-sm">Back</span>

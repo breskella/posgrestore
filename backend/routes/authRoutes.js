@@ -3,11 +3,13 @@ import {
   login,
   signup,
   logout,
+  checkAuth,
   forgotPassword,
   denyPasswordReset,
   confirmPasswordReset,
   resetPassword,
 } from "../controllers/authController.js";
+import { verifyToken } from "../middleware/authMiddleware.js";
 import { forgotPasswordArcjet, resetPasswordArcjet, protectWithArcjet } from "../lib/arcjet.js";
 
 const router = express.Router();
@@ -25,6 +27,7 @@ const resetPasswordLimiter = protectWithArcjet(
 router.post("/signup", signup);
 router.post("/login", login);
 router.post("/logout", logout);
+router.get("/check-auth", verifyToken, checkAuth);
 
 router.post("/forgot-password", forgotPasswordLimiter, forgotPassword);
 router.get("/deny-reset/:token", denyPasswordReset);

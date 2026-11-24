@@ -1,31 +1,44 @@
 import express from "express";
-import { 
-  createProduct, 
-  getProducts, 
-  getProduct, 
-  updateProduct, 
-  deleteProduct, 
+import {
+  createProduct,
+  getProducts,
+  getProduct,
+  updateProduct,
+  deleteProduct,
   getActivityLogs,
-  cloneProduct
+  cloneProduct,
+  exportProductsCsv,
 } from "../controllers/productController.js";
-import { protectRoute } from "../middleware/authMiddleware.js";
+import {
+  protectRoute,
+  optionalVerifyToken,
+  requireRole,
+  attachStoreContext,
+} from "../middleware/authMiddleware.js";
 import upload from "../middleware/upload.js";
 
 const router = express.Router();
 
-// ==========================================
-// Public Routes (Accessible to everyone)
-// ==========================================
-router.get("/", getProducts);
-router.get("/logs", getActivityLogs); 
-router.get("/:id", getProduct);
+const requireStoreAdmin = [protectRoute, requireRole("store_admin", "super_admin"), attachStoreContext];
 
 // ==========================================
-// Protected Routes (Require Authentication & Image Upload Support)
+// Admin Scoped Read Routes (Must precede /:id)
 // ==========================================
-router.post("/", protectRoute, upload.single("image"), createProduct);
-router.post("/:id/clone", protectRoute, cloneProduct);
-router.put("/:id", protectRoute, upload.single("image"), updateProduct);
-router.delete("/:id", protectRoute, deleteProduct);
+router.get("/logs", ...requireStoreAdmin, getActivityLogs);
+router.get("/export", ...requireStoreAdmin, exportProductsCsv);
+
+// ==========================================
+// Public / Storefront & Scoped Product Read Routes
+// ==========================================
+router.get("/", optionalVerifyToken, getProducts);
+router.get("/:id", optionalVerifyToken, getProduct);
+
+// ==========================================
+// Protected Admin Routes (Require store_admin / super_admin & Tenant Context)
+// ==========================================
+router.post("/", ...requireStoreAdmin, upload.single("image"), createProduct);
+router.post("/:id/clone", ...requireStoreAdmin, cloneProduct);
+router.put("/:id", ...requireStoreAdmin, upload.single("image"), updateProduct);
+router.delete("/:id", ...requireStoreAdmin, deleteProduct);
 
 export default router;

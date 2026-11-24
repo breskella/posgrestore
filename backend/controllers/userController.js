@@ -1,18 +1,39 @@
 import { sql } from "../config/db.js";
 import bcrypt from "bcryptjs";
+import { formatAuthUser } from "../lib/storeUtils.js";
+
+const fetchUserWithStoreById = async (userId) => {
+  const rows = await sql`
+    SELECT
+      u.id,
+      u.username,
+      u.email,
+      u.role,
+      u.created_at,
+      s.id AS store_id,
+      s.name AS store_name,
+      s.slug AS store_slug,
+      s.subscription_status,
+      s.subscription_plan,
+      s.subscription_expires_at
+    FROM users u
+    LEFT JOIN stores s ON s.owner_id = u.id
+    WHERE u.id = ${userId}
+    LIMIT 1
+  `;
+  return rows[0] ? formatAuthUser(rows[0]) : null;
+};
 
 export const getUserProfile = async (req, res) => {
   try {
     const userId = req.user.id;
-    const result = await sql`
-      SELECT id, username, email, created_at FROM users WHERE id = ${userId}
-    `;
+    const profile = await fetchUserWithStoreById(userId);
 
-    if (result.length === 0) {
+    if (!profile) {
       return res.status(404).json({ success: false, message: "User not found" });
     }
 
-    res.status(200).json({ success: true, data: result[0] });
+    res.status(200).json({ success: true, data: profile });
   } catch (error) {
     console.error("Error in getUserProfile:", error);
     res.status(500).json({ success: false, message: "Server error" });
@@ -108,9 +129,11 @@ export const updateUserProfile = async (req, res) => {
       return res.status(404).json({ success: false, message: "User not found" });
     }
 
+    const updatedProfile = await fetchUserWithStoreById(authenticatedUserId);
+
     return res.status(200).json({
       success: true,
-      data: result[0],
+      data: updatedProfile,
       message: "Profile updated successfully",
     });
   } catch (error) {

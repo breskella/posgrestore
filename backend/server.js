@@ -10,6 +10,8 @@ import productRoutes from "./routes/productRoutes.js";
 import authRoutes from "./routes/authRoutes.js";
 import userRoutes from "./routes/userRoutes.js";
 import { getActivityLogs } from "./controllers/productController.js";
+import { protectRoute, requireRole, attachStoreContext } from "./middleware/authMiddleware.js";
+import { generateUniqueStoreSlug } from "./lib/storeUtils.js";
 import { sql } from "./config/db.js";
 
 dotenv.config();
@@ -155,16 +157,87 @@ app.use(async (req, res, next) => {
 app.use("/api/products", productRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
-app.get("/api/logs", getActivityLogs);
+app.get("/api/logs", protectRoute, requireRole("store_admin", "super_admin"), attachStoreContext, getActivityLogs);
 
 async function initDB() {
     const maxRetries = 3;
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
         try {
-            // 1. Create products table if not exists
+            // 1. Create users table if not exists (must exist before stores due to FK)
+            await sql`
+                CREATE TABLE IF NOT EXISTS users (
+                    id SERIAL PRIMARY KEY,
+                    username VARCHAR(100) NOT NULL,
+                    email VARCHAR(255) UNIQUE NOT NULL,
+                    password VARCHAR(255) NOT NULL,
+                    role VARCHAR(30) NOT NULL DEFAULT 'store_admin' CHECK (role IN ('super_admin', 'store_admin', 'customer')),
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            `;
+
+            // Ensure columns exist even if the users table was already created before
+            await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS role VARCHAR(30) NOT NULL DEFAULT 'store_admin'`;
+            await sql`UPDATE users SET role = 'store_admin' WHERE role IS NULL`;
+            await sql`
+                DO $$
+                BEGIN
+                    IF NOT EXISTS (
+                        SELECT 1 FROM pg_constraint
+                        WHERE conname = 'users_role_check' AND conrelid = 'users'::regclass
+                    ) THEN
+                        ALTER TABLE users
+                        ADD CONSTRAINT users_role_check CHECK (role IN ('super_admin', 'store_admin', 'customer'));
+                    END IF;
+                END $$;
+            `;
+
+            await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_token_hash VARCHAR(255)`;
+            await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_token_expires_at TIMESTAMPTZ`;
+            await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_approval_token_hash VARCHAR(255)`;
+            await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_approval_expires_at TIMESTAMPTZ`;
+            await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS password_changed_at TIMESTAMPTZ`;
+            await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS password_version INTEGER NOT NULL DEFAULT 1`;
+
+            await sql`CREATE INDEX IF NOT EXISTS users_reset_token_hash_idx ON users (reset_token_hash)`;
+            await sql`CREATE INDEX IF NOT EXISTS users_reset_approval_token_hash_idx ON users (reset_approval_token_hash)`;
+            await sql`CREATE INDEX IF NOT EXISTS users_email_lower_idx ON users (LOWER(email))`;
+
+            // 2. Create stores table for multi-tenant isolation
+            await sql`
+                CREATE TABLE IF NOT EXISTS stores (
+                    id SERIAL PRIMARY KEY,
+                    owner_id INTEGER NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+                    name VARCHAR(150) NOT NULL,
+                    slug VARCHAR(160) NOT NULL UNIQUE,
+                    description TEXT,
+                    logo_url TEXT,
+                    subscription_status VARCHAR(30) NOT NULL DEFAULT 'trial' CHECK (subscription_status IN ('trial', 'active', 'expired', 'cancelled')),
+                    subscription_plan VARCHAR(30) DEFAULT 'free_trial',
+                    subscription_expires_at TIMESTAMPTZ,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            `;
+
+            await sql`
+                DO $$
+                BEGIN
+                    IF NOT EXISTS (
+                        SELECT 1 FROM pg_constraint
+                        WHERE conname = 'stores_subscription_status_check' AND conrelid = 'stores'::regclass
+                    ) THEN
+                        ALTER TABLE stores
+                        ADD CONSTRAINT stores_subscription_status_check CHECK (subscription_status IN ('trial', 'active', 'expired', 'cancelled'));
+                    END IF;
+                END $$;
+            `;
+            await sql`CREATE INDEX IF NOT EXISTS stores_slug_idx ON stores (slug)`;
+            await sql`CREATE INDEX IF NOT EXISTS stores_owner_id_idx ON stores (owner_id)`;
+
+            // 3. Create products table if not exists
             await sql`
                 CREATE TABLE IF NOT EXISTS products (
                     id SERIAL PRIMARY KEY,
+                    store_id INTEGER REFERENCES stores(id) ON DELETE CASCADE,
                     name VARCHAR(255) NOT NULL,
                     image TEXT NOT NULL,
                     price DECIMAL(10, 2) NOT NULL,
@@ -175,6 +248,7 @@ async function initDB() {
             `;
 
             await sql`ALTER TABLE products ALTER COLUMN image TYPE TEXT`;
+            await sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS store_id INTEGER REFERENCES stores(id) ON DELETE CASCADE`;
             await sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS category VARCHAR(100)`;
             await sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS count INTEGER DEFAULT 0`;
             await sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS image_public_id TEXT`;
@@ -188,6 +262,7 @@ async function initDB() {
                 WHERE image LIKE 'data:image%' OR LENGTH(image) > 1000
             `;
 
+            await sql`CREATE INDEX IF NOT EXISTS products_store_created_at_idx ON products (store_id, created_at DESC)`;
             await sql`CREATE INDEX IF NOT EXISTS products_category_created_at_idx ON products (category, created_at DESC)`;
             await sql`CREATE INDEX IF NOT EXISTS products_count_created_at_idx ON products (count, created_at DESC)`;
             try {
@@ -197,50 +272,57 @@ async function initDB() {
                 console.warn("Could not enable trigram search index:", indexError.message);
             }
 
-            // 2. Create activity_logs table if not exists
+            // 4. Create activity_logs table if not exists
             await sql`
                 CREATE TABLE IF NOT EXISTS activity_logs (
                     id SERIAL PRIMARY KEY,
+                    store_id INTEGER REFERENCES stores(id) ON DELETE CASCADE,
                     action VARCHAR(50) NOT NULL,
                     product_name VARCHAR(255) NOT NULL,
                     details TEXT,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             `;
+            await sql`ALTER TABLE activity_logs ADD COLUMN IF NOT EXISTS store_id INTEGER REFERENCES stores(id) ON DELETE CASCADE`;
+            await sql`CREATE INDEX IF NOT EXISTS activity_logs_store_created_at_idx ON activity_logs (store_id, created_at DESC)`;
 
-            // 3. Create users table if not exists
-            await sql`
-                CREATE TABLE IF NOT EXISTS users (
-                    id SERIAL PRIMARY KEY,
-                    username VARCHAR(100) NOT NULL,
-                    email VARCHAR(255) UNIQUE NOT NULL,
-                    password VARCHAR(255) NOT NULL,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                )
+            // 5. Safe data migration for existing store_admin users and orphaned records
+            const adminsWithoutStore = await sql`
+                SELECT u.id, u.username
+                FROM users u
+                LEFT JOIN stores s ON s.owner_id = u.id
+                WHERE u.role = 'store_admin' AND s.id IS NULL
+                ORDER BY u.id ASC
             `;
 
-            // Ensure columns exist even if the table was already created before
-            await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_token_hash VARCHAR(255)`;
-            await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_token_expires_at TIMESTAMPTZ`;
-            await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_approval_token_hash VARCHAR(255)`;
-            await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_approval_expires_at TIMESTAMPTZ`;
-            await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS password_changed_at TIMESTAMPTZ`;
-            await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS password_version INTEGER NOT NULL DEFAULT 1`;
+            for (const adminUser of adminsWithoutStore) {
+                const defaultStoreName = `${adminUser.username}'s Store`.slice(0, 150);
+                const uniqueSlug = await generateUniqueStoreSlug(defaultStoreName);
+                await sql`
+                    INSERT INTO stores (owner_id, name, slug, subscription_status, subscription_plan, subscription_expires_at)
+                    VALUES (${adminUser.id}, ${defaultStoreName}, ${uniqueSlug}, 'trial', 'free_trial', NOW() + INTERVAL '14 days')
+                    ON CONFLICT (owner_id) DO NOTHING
+                `;
+            }
 
-            await sql`CREATE INDEX IF NOT EXISTS users_reset_token_hash_idx ON users (reset_token_hash)`;
-            await sql`CREATE INDEX IF NOT EXISTS users_reset_approval_token_hash_idx ON users (reset_approval_token_hash)`;
-            await sql`CREATE INDEX IF NOT EXISTS users_email_lower_idx ON users (LOWER(email))`;
+            const firstStoreRows = await sql`SELECT id FROM stores ORDER BY id ASC LIMIT 1`;
+            const firstStoreId = firstStoreRows[0]?.id ?? null;
 
             const productCount = await sql`SELECT COUNT(*)::int AS total FROM products`;
             if (Number(productCount[0]?.total ?? 0) === 0) {
                 await sql`TRUNCATE TABLE products RESTART IDENTITY`;
                 for (const product of SAMPLE_PRODUCTS) {
                     await sql`
-                        INSERT INTO products (name, price, category, count, image)
-                        VALUES (${product.name}, ${product.price}, ${product.category}, ${product.count}, ${product.image})
+                        INSERT INTO products (name, price, category, count, image, store_id)
+                        VALUES (${product.name}, ${product.price}, ${product.category}, ${product.count}, ${product.image}, ${firstStoreId})
                     `;
                 }
                 console.log("Seeded demo products because the inventory was empty");
+            }
+
+            if (firstStoreId !== null) {
+                await sql`UPDATE products SET store_id = ${firstStoreId} WHERE store_id IS NULL`;
+                await sql`UPDATE activity_logs SET store_id = ${firstStoreId} WHERE store_id IS NULL`;
             }
 
             console.log("Database and tables initialized successfully");

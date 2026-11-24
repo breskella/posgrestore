@@ -18,6 +18,7 @@ import {
   Code2Icon,
 } from "lucide-react";
 import emailjs from "@emailjs/browser";
+import toast from "react-hot-toast";
 
 
 /* ─── Tiny scroll-reveal hook ─── */
@@ -152,9 +153,10 @@ const LandingPage = () => {
         setFormData({ name: "", email: "", message: "" });
         setTimeout(() => setSubmitted(false), 5000);
       })
-      .catch(() => {
+      .catch((error) => {
         setLoading(false);
-        alert("Failed to send message. Please try again.");
+        console.error("Could not send contact message:", error);
+        toast.error("Failed to send message. Please try again.");
       });
   };
 

@@ -6,7 +6,7 @@ import { LogIn, Mail, Lock, Loader2 } from "lucide-react";
 const LoginPage = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const { login, isLoading, error } = useAuthStore();
+  const { login, isLoading } = useAuthStore();
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
@@ -24,12 +24,6 @@ const LoginPage = () => {
           <h2 className="text-3xl font-bold text-primary">Welcome Back</h2>
           <p className="text-sm text-base-content/60 mt-1">Sign in to access your inventory</p>
         </div>
-
-        {error && (
-          <div className="alert alert-error mb-4 text-sm py-2">
-            <span>{error}</span>
-          </div>
-        )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="form-control">

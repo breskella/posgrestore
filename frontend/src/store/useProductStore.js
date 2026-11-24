@@ -61,7 +61,6 @@ export const useProductStore = create((set, get) => ({
 
         try {
             const { formData } = get();
-            const token = useAuthStore.getState().token;
 
             // Construct FormData to support file upload
             const formDataObj = new FormData();
@@ -73,11 +72,7 @@ export const useProductStore = create((set, get) => ({
                 formDataObj.append("image", formData.image);
             }
 
-            await API.post(`/api/products`, formDataObj, {
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                },
-            });
+            await API.post(`/api/products`, formDataObj);
 
             const { pagination, activeFilters } = get();
             set({
@@ -90,6 +85,7 @@ export const useProductStore = create((set, get) => ({
             });
             await get().fetchProducts(1, activeFilters, true);
             get().resetForm();
+            get().fetchLogs();
             toast.success("Product added successfully");
             document.getElementById("add_product_modal").close();
         } catch (error) {
@@ -170,14 +166,16 @@ export const useProductStore = create((set, get) => ({
                 const hasExistingProducts = Array.isArray(get().products) && get().products.length > 0;
                 if (hasExistingProducts) {
                     set({ error: null, loading: false });
+                    toast.error(err.response?.data?.message || "Could not refresh products. Showing the last loaded results.");
                     return;
                 }
 
-                if (err.response?.status === 429) {
-                    set({ error: "Rate limit exceeded", products: [], facets: [] });
-                } else {
-                    set({ error: "Something went wrong", products: [], facets: [] });
-                }
+                const message = err.response?.data?.message
+                    || (err.response?.status === 429
+                        ? "Too many requests. Please try again shortly."
+                        : "Could not load products. Please try again.");
+                set({ error: message, products: [], facets: [] });
+                toast.error(message);
             } finally {
                 if (get().productsRequestId === requestId) set({ loading: false });
                 if (inFlightProductRequests.get(queryKey)?.requestId === requestId) {
@@ -195,10 +193,7 @@ export const useProductStore = create((set, get) => ({
         console.log("deleteProduct function called", id);
         set({ loading: true });
         try {
-            const token = useAuthStore.getState().token;
-            await API.delete(`/api/products/${id}`, {
-                headers: { Authorization: `Bearer ${token}` },
-            });
+            await API.delete(`/api/products/${id}`);
 
             const { pagination, activeFilters, products } = get();
             const requestedPage = targetPage ?? pagination.currentPage ?? 1;
@@ -212,6 +207,7 @@ export const useProductStore = create((set, get) => ({
                 lastFetchedKey: null,
             });
             await get().fetchProducts(page, activeFilters, true);
+            get().fetchLogs();
             toast.success("Product deleted successfully");
         } catch (error) {
             console.log("Error in deleteProduct function", error);
@@ -226,10 +222,7 @@ export const useProductStore = create((set, get) => ({
     cloneProduct: async (id) => {
         set({ loading: true });
         try {
-            const token = useAuthStore.getState().token;
-            await API.post(`/api/products/${id}/clone`, {}, {
-                headers: { Authorization: `Bearer ${token}` },
-            });
+            await API.post(`/api/products/${id}/clone`);
 
             const { pagination, activeFilters } = get();
             set({
@@ -237,10 +230,16 @@ export const useProductStore = create((set, get) => ({
                 lastFetchedKey: null,
             });
             await get().fetchProducts(pagination.currentPage, activeFilters, true);
+            get().fetchLogs();
             toast.success("Product cloned successfully");
         } catch (error) {
             console.log("Error in cloneProduct function", error);
-            toast.error(error.response?.data?.message || "Could not clone product");
+            if (error.response?.status === 401) {
+                toast.error("Your session has expired. Please log in again.");
+                useAuthStore.getState().setUser(null);
+            } else {
+                toast.error(error.response?.data?.message || "Could not clone product");
+            }
         } finally {
             set({ loading: false });
         }
@@ -264,7 +263,9 @@ export const useProductStore = create((set, get) => ({
             });
         } catch (error) {
             console.log("Error in fetchProduct function", error);
-            set({ error: "Something went wrong", currentProduct: null });
+            const message = error.response?.data?.message || "Could not load this product";
+            set({ error: message, currentProduct: null });
+            toast.error(message);
         } finally {
             set({ loading: false });
         }
@@ -274,7 +275,6 @@ export const useProductStore = create((set, get) => ({
     updateProduct: async (id, targetPage) => {
         set({ loading: true });
         const { formData, products, currentProduct, pagination, activeFilters } = get();
-        const token = useAuthStore.getState().token;
         const currentPage = targetPage ?? pagination.currentPage ?? 1;
 
         // Backup state for rollback in case of error
@@ -322,11 +322,7 @@ export const useProductStore = create((set, get) => ({
                 formDataObj.append("image", formData.image);
             }
 
-            const response = await API.put(`/api/products/${id}`, formDataObj, {
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                },
-            });
+            const response = await API.put(`/api/products/${id}`, formDataObj);
 
             const serverUpdatedProduct = normalizeProduct(response.data.data);
 
@@ -345,6 +341,7 @@ export const useProductStore = create((set, get) => ({
 
             // Re-fetch current page data in background to ensure total facets & counts are synced
             get().fetchProducts(currentPage, activeFilters, true);
+            get().fetchLogs();
 
             toast.success("Product updated successfully");
             return serverUpdatedProduct;
@@ -374,11 +371,13 @@ export const useProductStore = create((set, get) => ({
             }
             set({ logs, loadingLogs: false, logsError: null });
         } catch (error) {
-            console.log("Error fetching activity logs:", error);
+            console.error("Error fetching activity logs:", error);
+            const message = error.response?.data?.message || "Could not load activity logs";
             set({
                 loadingLogs: false,
-                logsError: error.response?.data?.message || "Could not load activity logs",
+                logsError: message,
             });
+            toast.error(message);
         }
     },
 

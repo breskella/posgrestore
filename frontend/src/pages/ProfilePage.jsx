@@ -1,11 +1,13 @@
 import { useState, useEffect } from "react";
-import { UserIcon, MailIcon, LockIcon, SaveIcon, ShieldCheckIcon } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { UserIcon, MailIcon, LockIcon, SaveIcon, ShieldCheckIcon, ArrowLeftIcon } from "lucide-react";
 import toast from "react-hot-toast";
 import API from "../axios";
 import { useAuthStore } from "../store/useAuthStore";
 
 const ProfilePage = () => {
-  const { user, token, setUser } = useAuthStore();
+  const navigate = useNavigate();
+  const { user, setUser } = useAuthStore();
   const [formData, setFormData] = useState({
     username: "",
     email: "",
@@ -29,13 +31,6 @@ const ProfilePage = () => {
     e.preventDefault();
     setLoading(true);
 
-    const currentToken = token || localStorage.getItem("token");
-    if (!currentToken) {
-      toast.error("Your session has expired. Please log in again.");
-      setLoading(false);
-      return;
-    }
-
     if (!formData.currentPassword) {
       toast.error("Your current password is required before saving profile changes.");
       setLoading(false);
@@ -51,9 +46,7 @@ const ProfilePage = () => {
         ...(formData.password ? { password: formData.password } : {}),
       };
 
-      const response = await API.put("/api/users/profile", profileData, {
-        headers: { Authorization: `Bearer ${currentToken}` },
-      });
+      const response = await API.put("/api/users/profile", profileData);
 
       if (response.data.success) {
         setUser(response.data.data);
@@ -71,14 +64,26 @@ const ProfilePage = () => {
   return (
     <div className="max-w-2xl mx-auto px-4 py-12">
       <div className="bg-base-100 rounded-2xl shadow-xl p-8 border border-base-content/10">
-        <div className="flex items-center gap-4 mb-8">
-          <div className="p-4 bg-primary/10 rounded-full text-primary">
-            <UserIcon className="size-8" />
+        <div className="flex items-center justify-between gap-4 mb-8">
+          <div className="flex items-center gap-4">
+            <div className="p-3.5 sm:p-4 bg-primary/10 rounded-2xl text-primary shrink-0">
+              <UserIcon className="size-7 sm:size-8" />
+            </div>
+            <div>
+              <h1 className="text-xl sm:text-2xl font-bold">Account Profile</h1>
+              <p className="text-xs sm:text-sm text-base-content/60">Manage your account information and security</p>
+            </div>
           </div>
-          <div>
-            <h1 className="text-2xl font-bold">Account Profile</h1>
-            <p className="text-sm text-base-content/60">Manage your account information and security</p>
-          </div>
+
+          <button
+            type="button"
+            onClick={() => navigate("/dashboard")}
+            className="btn btn-ghost btn-sm gap-2 rounded-xl border border-base-content/10 hover:border-primary/40 hover:bg-base-200 text-base-content/80 hover:text-base-content transition-all duration-200 cursor-pointer shrink-0"
+            title="Back to Dashboard"
+          >
+            <ArrowLeftIcon className="size-4" />
+            <span className="font-medium text-sm">Back</span>
+          </button>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">

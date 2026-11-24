@@ -24,9 +24,9 @@ function ProductCard({ product }) {
   return (
     <>
       {/* Product card with hover and entrance animation class */}
-      <div className="card bg-base-100 shadow-xl product-card">
+      <div className="card bg-base-100 shadow-lg hover:shadow-xl transition-all duration-300 product-card overflow-hidden w-full flex flex-col justify-between">
         {/* PRODUCT IMAGE */}
-        <figure className="relative pt-[56.25%] overflow-hidden">
+        <figure className="relative pt-[60%] sm:pt-[56.25%] overflow-hidden bg-base-200">
           <img
             src={product.image}
             alt={product.name}
@@ -35,72 +35,77 @@ function ProductCard({ product }) {
             className="product-card-image absolute top-0 left-0 w-full h-full object-cover"
           />
           {/* STOCK BADGE OVERLAY WITH LOW STOCK SUPPORT */}
-          <div className="absolute top-3 right-3">
+          <div className="absolute top-2.5 right-2.5 sm:top-3 sm:right-3">
             {count === 0 ? (
-              <span className="badge badge-error gap-1 text-white font-medium shadow-md">
-                <AlertCircleIcon className="size-3.5" />
+              <span className="badge badge-error badge-sm sm:badge-md gap-1 text-white font-medium shadow-md">
+                <AlertCircleIcon className="size-3 sm:size-3.5" />
                 Out of Stock
               </span>
             ) : isLowStock ? (
-              <span className="badge badge-warning gap-1 text-white font-medium shadow-md">
-                <AlertTriangleIcon className="size-3.5" />
+              <span className="badge badge-warning badge-sm sm:badge-md gap-1 text-white font-medium shadow-md">
+                <AlertTriangleIcon className="size-3 sm:size-3.5" />
                 Low Stock ({count})
               </span>
             ) : (
-              <span className="badge badge-success gap-1 text-white font-medium shadow-md">
-                <PackageCheckIcon className="size-3.5" />
+              <span className="badge badge-success badge-sm sm:badge-md gap-1 text-white font-medium shadow-md">
+                <PackageCheckIcon className="size-3 sm:size-3.5" />
                 In Stock ({count})
               </span>
             )}
           </div>
         </figure>
 
-        <div className="card-body">
-          {/* CATEGORY TAG */}
-          {product.category && (
-            <span className="badge badge-ghost badge-sm w-fit mb-1">
-              {product.category}
-            </span>
-          )}
+        <div className="card-body p-4 sm:p-5 flex flex-col justify-between flex-1">
+          <div>
+            {/* CATEGORY TAG */}
+            {product.category && (
+              <span className="badge badge-ghost badge-xs sm:badge-sm w-fit mb-1.5">
+                {product.category}
+              </span>
+            )}
 
-          {/* PRODUCT INFO */}
-          <h2 className="card-title text-lg font-semibold">{product.name}</h2>
+            {/* PRODUCT INFO */}
+            <h2 className="card-title text-base sm:text-lg font-semibold line-clamp-1" title={product.name}>
+              {product.name}
+            </h2>
 
-          <div className="flex justify-between items-center mt-2">
-            <p className="text-2xl font-bold text-primary">${Number(product.price).toFixed(2)}</p>
-            <div className="flex items-center text-base-content/70 text-sm gap-1">
-              <HashIcon className="size-4" />
-              <span>Qty: {count}</span>
+            <div className="flex justify-between items-center mt-2">
+              <p className="text-xl sm:text-2xl font-bold text-primary">${Number(product.price).toFixed(2)}</p>
+              <div className="flex items-center text-base-content/70 text-xs sm:text-sm gap-1">
+                <HashIcon className="size-3.5 sm:size-4" />
+                <span>Qty: {count}</span>
+              </div>
             </div>
+
+            {/* CREATED AT DATE DISPLAY */}
+            {product.created_at && (
+              <div className="flex items-center gap-1.5 text-[11px] sm:text-xs text-base-content/60 mt-2 border-t border-base-200 pt-2">
+                <CalendarIcon className="size-3 sm:size-3.5" />
+                <span>Added: {new Date(product.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+              </div>
+            )}
           </div>
 
-          {/* CREATED AT DATE DISPLAY */}
-          {product.created_at && (
-            <div className="flex items-center gap-1.5 text-xs text-base-content/60 mt-2 border-t border-base-200 pt-2">
-              <CalendarIcon className="size-3.5" />
-              <span>Added: {new Date(product.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
-            </div>
-          )}
-
           {/* CARD ACTIONS */}
-          <div className="card-actions justify-end mt-4">
+          <div className="card-actions justify-end mt-3 sm:mt-4 gap-1.5 sm:gap-2">
             <button
-              className="btn btn-sm btn-success btn-outline"
+              className="btn btn-xs sm:btn-sm btn-success btn-outline"
               onClick={() => cloneProduct(product.id)}
               title="Duplicate Product"
             >
-              <CopyIcon className="size-4" />
+              <CopyIcon className="size-3.5 sm:size-4" />
             </button>
 
-            <Link to={`/product/${product.id}`} className="btn btn-sm btn-info btn-outline">
-              <EditIcon className="size-4" />
+            <Link to={`/product/${product.id}`} className="btn btn-xs sm:btn-sm btn-info btn-outline" title="Edit Product">
+              <EditIcon className="size-3.5 sm:size-4" />
             </Link>
 
             <button
-              className="btn btn-sm btn-error btn-outline"
+              className="btn btn-xs sm:btn-sm btn-error btn-outline"
               onClick={openDeleteModal}
+              title="Delete Product"
             >
-              <Trash2Icon className="size-4" />
+              <Trash2Icon className="size-3.5 sm:size-4" />
             </button>
           </div>
         </div>
@@ -108,21 +113,21 @@ function ProductCard({ product }) {
 
       {/* DELETE CONFIRMATION MODAL */}
       <dialog id={`delete_modal_${product.id}`} className="modal">
-        <div className="modal-box">
+        <div className="modal-box w-11/12 max-w-md p-5 sm:p-6 mx-auto">
           <div className="flex items-center gap-3 text-error mb-4">
-            <AlertTriangleIcon className="size-8" />
-            <h3 className="font-bold text-lg">Are you sure?</h3>
+            <AlertTriangleIcon className="size-7 sm:size-8 shrink-0" />
+            <h3 className="font-bold text-base sm:text-lg">Are you sure?</h3>
           </div>
-          <p className="py-2 text-base-content/70">
+          <p className="py-2 text-sm sm:text-base text-base-content/70">
             You are about to delete <span className="font-semibold text-base-content">"{product.name}"</span>. This action cannot be undone.
           </p>
-          <div className="modal-action">
+          <div className="modal-action mt-6">
             <form method="dialog">
               {/* Cancel button */}
-              <button className="btn btn-ghost mr-2">Cancel</button>
+              <button className="btn btn-sm sm:btn-md btn-ghost mr-2">Cancel</button>
             </form>
             {/* Confirm and delete button */}
-            <button className="btn btn-error" onClick={confirmDelete}>
+            <button className="btn btn-sm sm:btn-md btn-error" onClick={confirmDelete}>
               Yes, Delete
             </button>
           </div>

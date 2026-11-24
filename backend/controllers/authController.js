@@ -5,6 +5,12 @@ import { sql } from "../config/db.js";
 
 const RESET_TOKEN_TTL_MS = 15 * 60 * 1000;
 const genericResetMessage = "If an account exists for that email, a confirmation email will be sent.";
+const getAuthCookieOptions = () => ({
+  httpOnly: true,
+  secure: process.env.NODE_ENV === "production",
+  sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
+  path: "/",
+});
 
 const getJwtSecret = () => {
   if (!process.env.JWT_SECRET) {
@@ -158,9 +164,12 @@ export const signup = async (req, res) => {
     `;
 
     const user = createdUsers[0];
-    return res.status(201).json({
+    const token = generateToken(user);
+    return res.cookie("token", token, {
+      ...getAuthCookieOptions(),
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    }).status(201).json({
       success: true,
-      token: generateToken(user),
       data: { id: user.id, username: user.username, email: user.email },
       message: "Account created successfully",
     });
@@ -192,9 +201,12 @@ export const login = async (req, res) => {
     }
 
     const safeUser = { id: user.id, username: user.username, email: user.email };
-    return res.status(200).json({
+    const token = generateToken(user);
+    return res.cookie("token", token, {
+      ...getAuthCookieOptions(),
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    }).status(200).json({
       success: true,
-      token: generateToken(user),
       data: safeUser,
       message: "Logged in successfully",
     });
@@ -205,7 +217,9 @@ export const login = async (req, res) => {
 };
 
 export const logout = (_req, res) => {
-  return res.status(200).json({ success: true, message: "Logged out successfully" });
+  return res.clearCookie("token", getAuthCookieOptions())
+    .status(200)
+    .json({ success: true, message: "Logged out successfully" });
 };
 
 export const forgotPassword = async (req, res) => {

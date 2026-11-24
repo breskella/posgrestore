@@ -6,6 +6,28 @@ const normalizeNumber = (value, fallback = 0) => {
   return Number.isFinite(parsed) ? parsed : fallback;
 };
 
+export const logActivity = async (action, productName, details = "") => {
+  try {
+    const cleanAction = String(action || "").toUpperCase().slice(0, 50);
+    const cleanName = String(productName || "Unknown Product").slice(0, 255);
+    const cleanDetails = details ? String(details) : null;
+
+    const res = await sql`
+      INSERT INTO activity_logs (action, product_name, details)
+      VALUES (${cleanAction}, ${cleanName}, ${cleanDetails})
+      RETURNING *
+    `;
+    console.log(`[ACTIVITY LOG SUCCESS] Recorded ${cleanAction} for "${cleanName}":`, res[0]);
+    return res[0];
+  } catch (error) {
+    console.error(`[ACTIVITY LOG ERROR] Failed to record activity log [${action}] for "${productName}":`, {
+      message: error?.message,
+      code: error?.code,
+      detail: error?.detail,
+    });
+  }
+};
+
 export const getProducts = async (req, res) => {
   try {
     const search = typeof req.query.search === "string" ? req.query.search.trim() : "";
@@ -204,7 +226,14 @@ export const createProduct = async (req, res) => {
       RETURNING *
     `;
 
-    return res.status(201).json({ success: true, data: result[0], message: "Product created successfully" });
+    const createdProduct = result[0];
+    await logActivity(
+      "ADD",
+      createdProduct.name,
+      `Added to ${createdProduct.category} (Price: $${Number(createdProduct.price).toFixed(2)}, Qty: ${createdProduct.count})`
+    );
+
+    return res.status(201).json({ success: true, data: createdProduct, message: "Product created successfully" });
   } catch (error) {
     console.error("Error in createProduct:", error);
 
@@ -228,12 +257,14 @@ export const updateProduct = async (req, res) => {
     const { name, price, category, count, image } = req.body ?? {};
 
     const existing = await sql`
-      SELECT id, image_public_id FROM products WHERE id = ${Number(id)}
+      SELECT id, name, price, category, "count", image_public_id FROM products WHERE id = ${Number(id)}
     `;
 
     if (!existing.length) {
       return res.status(404).json({ success: false, message: "Product not found" });
     }
+
+    const currentProd = existing[0];
 
     const safeName = typeof name === "string" ? name.trim() : undefined;
     const safeCategory = typeof category === "string" ? category.trim() : undefined;
@@ -279,6 +310,7 @@ export const updateProduct = async (req, res) => {
 
     const updateQuery = `UPDATE products SET ${assignments.join(", ")} WHERE id = $${values.length} RETURNING *`;
     const result = await sql.query(updateQuery, values);
+    const updatedProd = result[0];
 
     const oldPublicId = existing[0].image_public_id;
     if (uploadedImage?.public_id && oldPublicId && oldPublicId !== uploadedImage.public_id) {
@@ -289,7 +321,20 @@ export const updateProduct = async (req, res) => {
       }
     }
 
-    return res.status(200).json({ success: true, data: result[0], message: "Product updated successfully" });
+    const changedSummary = [];
+    if (safeName !== undefined && safeName !== currentProd.name) changedSummary.push(`Name changed to "${safeName}"`);
+    if (safePrice !== undefined && safePrice !== Number(currentProd.price)) changedSummary.push(`Price: $${safePrice}`);
+    if (safeCategory !== undefined && safeCategory !== currentProd.category) changedSummary.push(`Category: "${safeCategory}"`);
+    if (safeCount !== undefined && safeCount !== currentProd.count) changedSummary.push(`Qty: ${safeCount}`);
+    if (nextImage !== undefined) changedSummary.push("Image updated");
+
+    const details = changedSummary.length > 0 
+      ? `Updated: ${changedSummary.join(", ")}` 
+      : `Updated fields: ${Object.keys(updateValues).join(", ")}`;
+
+    await logActivity("UPDATE", updatedProd?.name || currentProd.name, details);
+
+    return res.status(200).json({ success: true, data: updatedProd, message: "Product updated successfully" });
   } catch (error) {
     console.error("Error in updateProduct:", error);
 
@@ -308,11 +353,16 @@ export const updateProduct = async (req, res) => {
 export const deleteProduct = async (req, res) => {
   try {
     const { id } = req.params;
+    const parsedId = Number(id);
+
+    if (!Number.isInteger(parsedId) || parsedId <= 0) {
+      return res.status(400).json({ success: false, message: "Invalid product ID" });
+    }
 
     const existing = await sql`
-      SELECT image_public_id
+      SELECT id, name, category, image_public_id
       FROM products
-      WHERE id = ${Number(id)}
+      WHERE id = ${parsedId}
       LIMIT 1
     `;
 
@@ -320,28 +370,41 @@ export const deleteProduct = async (req, res) => {
       return res.status(404).json({ success: false, message: "Product not found" });
     }
 
-    const publicId = existing[0].image_public_id;
+    const productToDelete = existing[0];
+    const publicId = productToDelete.image_public_id;
     if (publicId) {
-      const references = await sql`
-        SELECT COUNT(*)::int AS total
-        FROM products
-        WHERE image_public_id = ${publicId}
-      `;
+      try {
+        const references = await sql`
+          SELECT COUNT(*)::int AS total
+          FROM products
+          WHERE image_public_id = ${publicId}
+        `;
 
-      if (Number(references[0]?.total ?? 0) === 1) {
-        await deleteProductImage(publicId);
+        if (Number(references[0]?.total ?? 0) === 1) {
+          await deleteProductImage(publicId);
+        }
+      } catch (imgCleanupErr) {
+        console.warn("Could not clean up Cloudinary image during delete (proceeding with DB deletion):", imgCleanupErr?.message || imgCleanupErr);
       }
     }
 
     const result = await sql`
       DELETE FROM products
-      WHERE id = ${Number(id)}
+      WHERE id = ${parsedId}
       RETURNING *
     `;
 
     if (!result.length) {
       return res.status(404).json({ success: false, message: "Product not found" });
     }
+
+    const deletedItem = result[0] || productToDelete;
+    const isCloned = String(deletedItem.name).toLowerCase().includes("copy");
+    const logDetails = isCloned
+      ? `Deleted duplicate product from ${deletedItem.category || "inventory"} (ID: ${deletedItem.id})`
+      : `Deleted from ${deletedItem.category || "inventory"} (ID: ${deletedItem.id})`;
+
+    await logActivity("DELETE", deletedItem.name, logDetails);
 
     return res.status(200).json({ success: true, message: "Product deleted successfully" });
   } catch (error) {
@@ -356,7 +419,7 @@ export const getActivityLogs = async (_req, res) => {
       SELECT id, action, product_name, details, created_at
       FROM activity_logs
       ORDER BY created_at DESC
-      LIMIT 20
+      LIMIT 50
     `;
 
     return res.status(200).json({ success: true, data: logs });
@@ -390,6 +453,12 @@ export const getActivityLogs = async (_req, res) => {
       VALUES (${clonedName}, ${prod.price}, ${prod.category}, ${prod.count}, ${prod.image}, ${prod.image_public_id})
       RETURNING *
     `;
+
+    await logActivity(
+      "ADD",
+      clonedName,
+      `Cloned from "${prod.name}" (Price: $${Number(prod.price).toFixed(2)}, Qty: ${prod.count})`
+    );
 
     return res.status(201).json({
       success: true,

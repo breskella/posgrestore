@@ -2,12 +2,14 @@ import express from "express";
 import helmet from "helmet";
 import morgan from "morgan";
 import cors from "cors";
+import cookieParser from "cookie-parser";
 import dotenv from "dotenv";
 
 import { aj } from "./lib/arcjet.js";
 import productRoutes from "./routes/productRoutes.js";
 import authRoutes from "./routes/authRoutes.js";
 import userRoutes from "./routes/userRoutes.js";
+import { getActivityLogs } from "./controllers/productController.js";
 import { sql } from "./config/db.js";
 
 dotenv.config();
@@ -84,6 +86,7 @@ const PORT = process.env.PORT || 3000;
 console.log(PORT);
 
 app.use(express.json());
+app.use(cookieParser());
 const allowedOrigins = [
     "https://posgrestore.vercel.app",
     "http://localhost:5173",
@@ -101,7 +104,7 @@ app.use(
         },
         credentials: true,
         methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-        allowedHeaders: ["Content-Type", "Authorization"],
+        allowedHeaders: ["Content-Type"],
     })
 );
 // helmet is a security middleware that helps you protect your app by setting various HTTP headers
@@ -152,6 +155,7 @@ app.use(async (req, res, next) => {
 app.use("/api/products", productRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
+app.get("/api/logs", getActivityLogs);
 
 async function initDB() {
     const maxRetries = 3;

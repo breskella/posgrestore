@@ -7,7 +7,7 @@ const SignupPage = () => {
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const { signup, isLoading, error } = useAuthStore();
+  const { signup, isLoading } = useAuthStore();
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
@@ -25,12 +25,6 @@ const SignupPage = () => {
           <h2 className="text-3xl font-bold text-primary">Create Account</h2>
           <p className="text-sm text-base-content/60 mt-1">Sign up to manage your inventory</p>
         </div>
-
-        {error && (
-          <div className="alert alert-error mb-4 text-sm py-2">
-            <span>{error}</span>
-          </div>
-        )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="form-control">

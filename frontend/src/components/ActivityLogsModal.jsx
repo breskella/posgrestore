@@ -27,21 +27,22 @@ function ActivityLogsModal() {
 
   return (
     <dialog id="activity_logs_modal" className="modal">
-      <div className="modal-box w-11/12 max-w-3xl max-h-[90vh] overflow-y-auto relative">
+      <div className="modal-box w-11/12 max-w-4xl p-4 sm:p-6 max-h-[90vh] overflow-y-auto relative">
         {/* CLOSE BUTTON */}
         <button
           type="button"
           onClick={closeModal}
           className="btn btn-sm btn-circle btn-ghost absolute right-3 top-3"
+          aria-label="Close modal"
         >
           ✕
         </button>
 
         {/* MODAL HEADER */}
-        <div className="flex justify-between items-center mb-6 pr-8">
+        <div className="flex justify-between items-center mb-4 sm:mb-6 pr-6 sm:pr-8">
           <div className="flex items-center gap-2">
-            <HistoryIcon className="size-6 text-primary" />
-            <h3 className="font-bold text-xl">System Activity Logs</h3>
+            <HistoryIcon className="size-5 sm:size-6 text-primary shrink-0" />
+            <h3 className="font-bold text-lg sm:text-xl">System Activity Logs</h3>
           </div>
           <button 
             type="button"
@@ -55,16 +56,8 @@ function ActivityLogsModal() {
 
         {/* LOGS CONTENT AREA */}
         {loadingLogs ? (
-          <div className="flex justify-center items-center py-12">
-            <div className="loading loading-spinner loading-md" />
-          </div>
-        ) : logsError ? (
-          <div className="alert alert-error my-6">{logsError}</div>
-        ) : logs.length === 0 ? (
-          <p className="text-center py-8 text-base-content/60">No activity logs recorded yet.</p>
-        ) : (
-          <div className="overflow-x-auto max-h-[60vh]">
-            <table className="table table-zebra w-full">
+          <div className="overflow-x-auto rounded-xl border border-base-200/60" aria-label="Loading activity logs" aria-busy="true">
+            <table className="table table-sm sm:table-md w-full min-w-[500px]">
               <thead>
                 <tr>
                   <th>Action</th>
@@ -74,12 +67,45 @@ function ActivityLogsModal() {
                 </tr>
               </thead>
               <tbody>
+                {Array.from({ length: 5 }, (_, index) => (
+                  <tr key={index} aria-hidden="true">
+                    <td><div className="skeleton h-5 w-16" /></td>
+                    <td><div className="skeleton h-4 w-28" /></td>
+                    <td><div className="skeleton h-4 w-36" /></td>
+                    <td><div className="skeleton h-4 w-24" /></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : logs.length === 0 ? (
+          <div className="py-8 text-center">
+            {logsError ? (
+              <button type="button" className="btn btn-ghost btn-sm" onClick={fetchLogs}>
+                Try again
+              </button>
+            ) : (
+              <p className="text-base-content/60">No activity logs recorded yet.</p>
+            )}
+          </div>
+        ) : (
+          <div className="overflow-x-auto max-h-[60vh] rounded-xl border border-base-200/60">
+            <table className="table table-zebra table-sm sm:table-md w-full min-w-[500px]">
+              <thead>
+                <tr>
+                  <th className="text-xs font-semibold">Action</th>
+                  <th className="text-xs font-semibold">Product Name</th>
+                  <th className="text-xs font-semibold">Details</th>
+                  <th className="text-xs font-semibold">Timestamp</th>
+                </tr>
+              </thead>
+              <tbody>
                 {logs.map((log) => (
-                  <tr key={log.id}>
+                  <tr key={log.id} className="text-xs sm:text-sm">
                     <td>{getActionBadge(log.action)}</td>
-                    <td className="font-semibold">{log.product_name}</td>
-                    <td className="text-sm text-base-content/70">{log.details}</td>
-                    <td className="text-xs text-base-content/50">
+                    <td className="font-semibold text-base-content">{log.product_name}</td>
+                    <td className="text-base-content/70">{log.details}</td>
+                    <td className="text-xs text-base-content/50 whitespace-nowrap">
                       {new Date(log.created_at).toLocaleString()}
                     </td>
                   </tr>
@@ -90,9 +116,9 @@ function ActivityLogsModal() {
         )}
 
         {/* MODAL ACTIONS */}
-        <div className="modal-action">
+        <div className="modal-action mt-6">
           <form method="dialog">
-            <button className="btn">Close</button>
+            <button className="btn btn-sm sm:btn-md">Close</button>
           </form>
         </div>
       </div>

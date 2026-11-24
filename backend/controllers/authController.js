@@ -2,6 +2,7 @@ import crypto from "crypto";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { sql } from "../config/db.js";
+import { formatAuthUser, generateUniqueStoreSlug } from "../lib/storeUtils.js";
 
 const RESET_TOKEN_TTL_MS = 15 * 60 * 1000;
 const genericResetMessage = "If an account exists for that email, a confirmation email will be sent.";
@@ -34,7 +35,9 @@ const getResetEmailFrom = () => {
 const generateToken = (user) => {
   const payload = {
     id: user.id,
+    role: user.role,
     passwordVersion: Number(user.password_version ?? 1),
+    store: user.store ?? null,
   };
 
   return jwt.sign(payload, getJwtSecret(), { expiresIn: "7d" });
@@ -131,11 +134,12 @@ const sendApprovalEmail = async (email, approvalUrl, denyUrl) => {
 };
 
 export const signup = async (req, res) => {
-  const { username, email, password } = req.body ?? {};
+  const { username, email, password, role = "customer", storeName } = req.body ?? {};
+  const allowedSignupRoles = ["customer", "store_admin"];
 
   if (
     typeof username !== "string" || !username.trim() ||
-    typeof email !== "string" || !email.trim() ||
+    typeof email !== "string" || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()) ||
     typeof password !== "string" || password.length < 8
   ) {
     return res.status(400).json({
@@ -144,12 +148,31 @@ export const signup = async (req, res) => {
     });
   }
 
+  if (typeof role !== "string" || !allowedSignupRoles.includes(role)) {
+    return res.status(400).json({
+      success: false,
+      message: "Invalid role. Account role must be 'customer' or 'store_admin'",
+    });
+  }
+
+  const cleanUsername = username.trim();
+  const normalizedEmail = email.trim().toLowerCase();
+  const cleanStoreName = typeof storeName === "string" ? storeName.trim() : "";
+
+  if (role === "store_admin" && (!cleanStoreName || cleanStoreName.length < 2 || cleanStoreName.length > 150)) {
+    return res.status(400).json({
+      success: false,
+      message: "A store name (2-150 characters) is required for store owner accounts",
+    });
+  }
+
   try {
     getJwtSecret();
 
     const existingUser = await sql`
       SELECT id FROM users
-      WHERE LOWER(email) = LOWER(${email.trim()})
+      WHERE LOWER(email) = LOWER(${normalizedEmail})
+      LIMIT 1
     `;
 
     if (existingUser.length) {
@@ -157,24 +180,87 @@ export const signup = async (req, res) => {
     }
 
     const hashedPassword = await bcrypt.hash(password, 12);
-    const createdUsers = await sql`
-      INSERT INTO users (username, email, password, password_version)
-      VALUES (${username.trim()}, ${email.trim()}, ${hashedPassword}, 1)
-      RETURNING id, username, email, password_version
-    `;
+    let safeUser;
+    let passwordVersion = 1;
 
-    const user = createdUsers[0];
-    const token = generateToken(user);
+    if (role === "store_admin") {
+      // Atomic user + store creation via PostgreSQL writable CTE
+      let createdRows = null;
+      for (let attempt = 0; attempt < 2; attempt++) {
+        const uniqueSlug = await generateUniqueStoreSlug(cleanStoreName);
+        try {
+          createdRows = await sql`
+            WITH created_user AS (
+              INSERT INTO users (username, email, password, password_version, role)
+              VALUES (${cleanUsername}, ${normalizedEmail}, ${hashedPassword}, 1, 'store_admin')
+              RETURNING id, username, email, role, password_version, created_at
+            ),
+            created_store AS (
+              INSERT INTO stores (owner_id, name, slug, subscription_status, subscription_plan, subscription_expires_at)
+              SELECT
+                id,
+                ${cleanStoreName},
+                ${uniqueSlug},
+                'trial',
+                'free_trial',
+                NOW() + INTERVAL '14 days'
+              FROM created_user
+              RETURNING id, owner_id, name, slug, subscription_status, subscription_plan, subscription_expires_at
+            )
+            SELECT
+              u.id,
+              u.username,
+              u.email,
+              u.role,
+              u.password_version,
+              u.created_at,
+              s.id AS store_id,
+              s.name AS store_name,
+              s.slug AS store_slug,
+              s.subscription_status,
+              s.subscription_plan,
+              s.subscription_expires_at
+            FROM created_user u
+            JOIN created_store s ON s.owner_id = u.id
+          `;
+          break;
+        } catch (insertError) {
+          if (insertError?.code === "23505" && String(insertError?.constraint || "").includes("slug") && attempt === 0) {
+            continue;
+          }
+          throw insertError;
+        }
+      }
+
+      const row = createdRows[0];
+      passwordVersion = Number(row.password_version ?? 1);
+      safeUser = formatAuthUser(row);
+    } else {
+      const createdUsers = await sql`
+        INSERT INTO users (username, email, password, password_version, role)
+        VALUES (${cleanUsername}, ${normalizedEmail}, ${hashedPassword}, 1, 'customer')
+        RETURNING id, username, email, role, password_version, created_at
+      `;
+
+      const row = createdUsers[0];
+      passwordVersion = Number(row.password_version ?? 1);
+      safeUser = formatAuthUser(row);
+    }
+
+    const token = generateToken({ ...safeUser, password_version: passwordVersion });
     return res.cookie("token", token, {
       ...getAuthCookieOptions(),
       maxAge: 7 * 24 * 60 * 60 * 1000,
     }).status(201).json({
       success: true,
-      data: { id: user.id, username: user.username, email: user.email },
+      data: safeUser,
       message: "Account created successfully",
     });
   } catch (error) {
     console.error("Error in signup:", error);
+    if (error?.code === "23505") {
+      return res.status(409).json({ success: false, message: "Email or store slug already exists" });
+    }
     return res.status(500).json({ success: false, message: "Server error" });
   }
 };
@@ -190,9 +276,24 @@ export const login = async (req, res) => {
     getJwtSecret();
 
     const users = await sql`
-      SELECT id, username, email, password, password_version
-      FROM users
-      WHERE LOWER(email) = LOWER(${email.trim()})
+      SELECT
+        u.id,
+        u.username,
+        u.email,
+        u.password,
+        u.role,
+        u.password_version,
+        u.created_at,
+        s.id AS store_id,
+        s.name AS store_name,
+        s.slug AS store_slug,
+        s.subscription_status,
+        s.subscription_plan,
+        s.subscription_expires_at
+      FROM users u
+      LEFT JOIN stores s ON s.owner_id = u.id
+      WHERE LOWER(u.email) = LOWER(${email.trim()})
+      LIMIT 1
     `;
 
     const user = users[0];
@@ -200,8 +301,8 @@ export const login = async (req, res) => {
       return res.status(401).json({ success: false, message: "Invalid email or password" });
     }
 
-    const safeUser = { id: user.id, username: user.username, email: user.email };
-    const token = generateToken(user);
+    const safeUser = formatAuthUser(user);
+    const token = generateToken({ ...safeUser, password_version: user.password_version });
     return res.cookie("token", token, {
       ...getAuthCookieOptions(),
       maxAge: 7 * 24 * 60 * 60 * 1000,
@@ -214,6 +315,14 @@ export const login = async (req, res) => {
     console.error("Error in login:", error);
     return res.status(500).json({ success: false, message: "Server error" });
   }
+};
+
+export const checkAuth = (req, res) => {
+  const { id, username, email, role, created_at, store } = req.user;
+  return res.status(200).json({
+    success: true,
+    data: { id, username, email, role, created_at, store: store ?? null },
+  });
 };
 
 export const logout = (_req, res) => {
@@ -338,9 +447,14 @@ export const denyPasswordReset = async (req, res) => {
       WHERE id = ${user.id}
     `;
 
+    const ownerStores = await sql`
+      SELECT id FROM stores WHERE owner_id = ${user.id} LIMIT 1
+    `;
+    const storeId = ownerStores[0]?.id ?? null;
+
     await sql`
-      INSERT INTO activity_logs (action, product_name, details)
-      VALUES ('password_reset_denied', 'security', ${`Password reset denied for email: ${user.email}`} )
+      INSERT INTO activity_logs (store_id, action, product_name, details)
+      VALUES (${storeId}, 'password_reset_denied', 'security', ${`Password reset denied for email: ${user.email}`})
     `;
 
     console.warn("Password reset request denied and revoked", {

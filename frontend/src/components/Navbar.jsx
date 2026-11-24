@@ -8,8 +8,10 @@ import toast from 'react-hot-toast';
 function Navbar() {
     const location = useLocation();
     const navigate = useNavigate();
-    const isHomePage = location.pathname === '/' || location.pathname === '/dashboard';
     const { logout, user } = useAuthStore();
+    const isAdmin = user?.role === 'store_admin' || user?.role === 'super_admin';
+    const homePath = user ? (isAdmin ? '/dashboard' : '/stores') : '/';
+    const isHomePage = location.pathname === '/' || location.pathname === '/dashboard';
     
     // Fetch products and pagination details from the global product store
     const { products, pagination } = useProductStore();
@@ -28,7 +30,7 @@ function Navbar() {
                 <div className="navbar px-3 sm:px-6 min-h-[3.75rem] sm:min-h-[4rem] justify-between gap-2">
                     {/* LOGO */}
                     <div className="flex-1 lg:flex-none min-w-0">
-                        <Link to="/" className="hover:opacity-80 transition-opacity inline-flex items-center">
+                        <Link to={homePath} className="hover:opacity-80 transition-opacity inline-flex items-center">
                             <div className="flex items-center gap-1.5 sm:gap-2">
                                 <ShoppingCartIcon className="size-7 sm:size-8 md:size-9 text-primary shrink-0" />
                                 <span
@@ -37,6 +39,16 @@ function Navbar() {
                                 >
                                     POSGRESTORE
                                 </span>
+                                {user?.store?.storeName && (
+                                    <span className="badge badge-primary badge-outline badge-xs sm:badge-sm hidden md:inline-flex">
+                                        {user.store.storeName}
+                                    </span>
+                                )}
+                                {user?.role === 'customer' && (
+                                    <span className="badge badge-secondary badge-outline badge-xs sm:badge-sm hidden md:inline-flex">
+                                        Shopper
+                                    </span>
+                                )}
                             </div>
                         </Link>
                     </div>
@@ -60,7 +72,7 @@ function Navbar() {
 
                         <ThemeSelector />
 
-                        {isHomePage && (
+                        {isHomePage && isAdmin && (
                             <div className="indicator">
                                 <div className="p-1.5 sm:p-2 rounded-full hover:bg-base-200 transition-colors cursor-pointer">
                                     <ShoppingBagIcon className="size-4 sm:size-5" />

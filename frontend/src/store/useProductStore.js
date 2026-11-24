@@ -101,15 +101,32 @@ export const useProductStore = create((set, get) => ({
         const state = get();
         const CACHE_DURATION = 60 * 1000;
         const now = Date.now();
+        const authUser = useAuthStore.getState().user;
+        const storeScope = authUser?.store?.storeId ?? authUser?.id ?? "guest";
         const search = typeof filters.search === "string" ? filters.search.trim() : "";
         const category = typeof filters.category === "string" ? filters.category : "All";
         const sort = ["newest", "oldest", "price-asc", "price-desc", "stock"].includes(filters.sort) ? filters.sort : "newest";
-        const queryKey = `${page}:${search.toLowerCase()}:${category.toLowerCase()}:${sort}`;
+        const scopeChanged = Boolean(state.lastFetchedKey && !state.lastFetchedKey.startsWith(`${storeScope}:`));
+        const effectivePage = scopeChanged ? 1 : page;
+        const queryKey = `${storeScope}:${effectivePage}:${search.toLowerCase()}:${category.toLowerCase()}:${sort}`;
+
+        if (scopeChanged) {
+            set({
+                products: [],
+                facets: [],
+                logs: [],
+                pagination: { ...state.pagination, currentPage: 1, totalProducts: 0, totalPages: 1 },
+                inventorySummary: { totalProducts: 0, inventoryValue: 0 },
+                lastFetched: null,
+                lastFetchedKey: null,
+            });
+        }
 
         if (
             !forceRefresh &&
+            !scopeChanged &&
             state.products.length > 0 &&
-            state.pagination.currentPage === page &&
+            state.pagination.currentPage === effectivePage &&
             state.lastFetchedKey === queryKey &&
             state.lastFetched &&
             (now - state.lastFetched < CACHE_DURATION)
@@ -123,7 +140,7 @@ export const useProductStore = create((set, get) => ({
         }
 
         const inFlightRequest = inFlightProductRequests.get(queryKey);
-        if (!forceRefresh && inFlightRequest?.requestId === state.productsRequestId) {
+        if (!forceRefresh && !scopeChanged && inFlightRequest?.requestId === state.productsRequestId) {
             set({ activeFilters: { search, category, sort } });
             return inFlightRequest.promise;
         }
@@ -139,7 +156,7 @@ export const useProductStore = create((set, get) => ({
         const request = (async () => {
             try {
                 const params = new URLSearchParams({
-                    page: String(page),
+                    page: String(effectivePage),
                     limit: String(state.pagination.limit),
                     search,
                     category,
@@ -381,39 +398,21 @@ export const useProductStore = create((set, get) => ({
         }
     },
 
-    // Export products to CSV file download
+    // Export products to CSV file download via RBAC-protected backend endpoint
     exportProducts: async () => {
         const state = get();
         const { search, category, sort } = state.activeFilters;
         try {
             const params = new URLSearchParams({
-                page: "1",
-                limit: "5000",
                 search: search || "",
                 category: category || "All",
                 sort: sort || "newest",
             });
-            const response = await API.get(`/api/products?${params.toString()}`);
-            const exportData = response.data?.data || state.products;
-
-            if (!Array.isArray(exportData) || exportData.length === 0) {
-                toast.error("No products available to export");
-                return;
-            }
-
-            const headers = ["Product Name", "Category", "Price ($)", "Stock Count", "Status"];
-            const rows = exportData.map((p) => {
-                const count = Number(p.count ?? 0);
-                const status = count === 0 ? "Out of Stock" : count < 5 ? "Low Stock" : "In Stock";
-                const safeName = `"${String(p.name || "").replace(/"/g, '""')}"`;
-                const safeCategory = `"${String(p.category || "General").replace(/"/g, '""')}"`;
-                const price = Number(p.price || 0).toFixed(2);
-                return [safeName, safeCategory, price, count, `"${status}"`].join(",");
+            const response = await API.get(`/api/products/export?${params.toString()}`, {
+                responseType: "blob",
             });
 
-            // Prepend UTF-8 BOM (\uFEFF) for Excel compatibility
-            const csvContent = "\uFEFF" + [headers.join(","), ...rows].join("\n");
-            const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+            const blob = new Blob([response.data], { type: "text/csv;charset=utf-8;" });
             const url = URL.createObjectURL(blob);
             const link = document.createElement("a");
             link.href = url;

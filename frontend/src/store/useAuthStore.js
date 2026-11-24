@@ -20,7 +20,7 @@ export const useAuthStore = create((set) => ({
 
   checkAuth: async () => {
     try {
-      const response = await API.get("/api/users/profile");
+      const response = await API.get("/api/auth/check-auth");
       if (!response.data?.success || !response.data.data) {
         throw new Error("The session response did not include a user");
       }
@@ -49,7 +49,7 @@ export const useAuthStore = create((set) => ({
 
       set({ user: data.data, isLoading: false, sessionError: null });
       toast.success("Account created successfully");
-      return { success: true };
+      return { success: true, user: data.data };
     } catch (error) {
       const message = error.response?.data?.message || error.message || "Failed to sign up";
       set({ error: message, isLoading: false });
@@ -67,7 +67,7 @@ export const useAuthStore = create((set) => ({
 
       set({ user: data.data, isLoading: false, sessionError: null });
       toast.success("Logged in successfully");
-      return { success: true };
+      return { success: true, user: data.data };
     } catch (error) {
       const message = error.response?.data?.message || error.message || "Failed to log in";
       set({ error: message, isLoading: false });

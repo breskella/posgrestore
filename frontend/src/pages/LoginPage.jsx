@@ -13,7 +13,8 @@ const LoginPage = () => {
     e.preventDefault();
     const result = await login({ email, password });
     if (result.success) {
-      navigate("/"); // Redirect to home page after successful login
+      const destination = result.user?.role === "customer" ? "/stores" : "/dashboard";
+      navigate(destination, { replace: true });
     }
   };
 

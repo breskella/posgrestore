@@ -89,6 +89,7 @@ app.use(express.json());
 app.use(cookieParser());
 const allowedOrigins = [
     "https://posgrestore.vercel.app",
+    "https://posgrestore-z8sx.vercel.app",
     "http://localhost:5173",
     "http://localhost:3000",
 ];
@@ -104,7 +105,7 @@ app.use(
         },
         credentials: true,
         methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-        allowedHeaders: ["Content-Type"],
+        allowedHeaders: ["Content-Type", "Authorization"],
     })
 );
 // helmet is a security middleware that helps you protect your app by setting various HTTP headers

@@ -89,7 +89,6 @@ app.use(express.json());
 app.use(cookieParser());
 const allowedOrigins = [
     "https://posgrestore.vercel.app",
-    "https://posgrestore-z8sx.vercel.app",
     "http://localhost:5173",
     "http://localhost:3000",
 ];

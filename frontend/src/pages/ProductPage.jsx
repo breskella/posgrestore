@@ -125,6 +125,19 @@ function ProductPage() {
                 />
               </div>
 
+              <div className="form-control">
+                <label className="label py-1">
+                  <span className="label-text text-sm sm:text-base font-medium">Description / Specifications</span>
+                </label>
+                <textarea
+                  className="textarea textarea-bordered min-h-28 w-full text-sm"
+                  maxLength={10000}
+                  placeholder="Add product details for shoppers"
+                  value={formData.description || ""}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                />
+              </div>
+
               {/* PRODUCT COUNT / STOCK INPUT */}
               <div className="form-control">
                 <label className="label py-1">

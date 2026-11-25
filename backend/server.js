@@ -9,6 +9,7 @@ import { aj } from "./lib/arcjet.js";
 import productRoutes from "./routes/productRoutes.js";
 import authRoutes from "./routes/authRoutes.js";
 import userRoutes from "./routes/userRoutes.js";
+import storeRoutes from "./routes/storeRoutes.js";
 import { getActivityLogs } from "./controllers/productController.js";
 import { protectRoute, requireRole, attachStoreContext } from "./middleware/authMiddleware.js";
 import { generateUniqueStoreSlug } from "./lib/storeUtils.js";
@@ -157,6 +158,7 @@ app.use(async (req, res, next) => {
 app.use("/api/products", productRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
+app.use("/api/stores", storeRoutes);
 app.get("/api/logs", protectRoute, requireRole("store_admin", "super_admin"), attachStoreContext, getActivityLogs);
 
 async function initDB() {
@@ -242,6 +244,7 @@ async function initDB() {
                     image TEXT NOT NULL,
                     price DECIMAL(10, 2) NOT NULL,
                     category VARCHAR(100),
+                    description TEXT,
                     count INTEGER NOT NULL DEFAULT 0 CHECK (count >= 0),
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
@@ -250,6 +253,7 @@ async function initDB() {
             await sql`ALTER TABLE products ALTER COLUMN image TYPE TEXT`;
             await sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS store_id INTEGER REFERENCES stores(id) ON DELETE CASCADE`;
             await sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS category VARCHAR(100)`;
+            await sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS description TEXT`;
             await sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS count INTEGER DEFAULT 0`;
             await sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS image_public_id TEXT`;
             await sql`UPDATE products SET count = 0 WHERE count IS NULL`;

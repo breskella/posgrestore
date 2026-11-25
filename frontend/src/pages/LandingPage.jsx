@@ -8,6 +8,7 @@ import {
   DownloadIcon,
   LayoutDashboardIcon,
   ArrowRightIcon,
+  StoreIcon,
   SparklesIcon,
   MailIcon,
   SendIcon,
@@ -172,24 +173,24 @@ const LandingPage = () => {
 
       {/* ══ NAVBAR ══════════════════════════════════════════════ */}
       <header
-        className={`fixed top-0 left-0 w-full z-50 px-5 md:px-12 flex items-center justify-between transition-all duration-300 ${
+        className={`fixed top-0 left-0 w-full z-50 px-4 sm:px-6 lg:px-12 flex items-center justify-between gap-4 transition-all duration-300 ${
           isScrolled
             ? "bg-base-100/70 backdrop-blur-xl shadow-lg border-b border-base-content/10 py-3"
             : "bg-transparent py-5"
         }`}
       >
         {/* Logo */}
-        <Link to="/" className="flex items-center gap-2.5 group">
-          <div className="p-2 rounded-xl bg-primary/15 group-hover:bg-primary/25 transition-colors duration-300">
+        <Link to="/" className="flex min-w-0 shrink-0 items-center gap-2.5 group">
+          <div className="shrink-0 p-2 rounded-xl bg-primary/15 group-hover:bg-primary/25 transition-colors duration-300">
             <ShoppingCartIcon className="size-5 text-primary" />
           </div>
-          <span className="text-lg font-extrabold font-mono tracking-widest bg-clip-text text-transparent bg-gradient-to-r from-primary to-secondary">
+          <span className="whitespace-nowrap text-base sm:text-lg font-extrabold font-mono tracking-wider sm:tracking-widest bg-clip-text text-transparent bg-gradient-to-r from-primary to-secondary">
             POSGRESTORE
           </span>
         </Link>
 
         {/* Desktop nav */}
-        <nav className="hidden md:flex items-center gap-8 text-sm font-medium text-base-content/70">
+        <nav className="hidden lg:flex shrink-0 items-center gap-5 xl:gap-8 text-sm font-medium text-base-content/70">
           {[["#features", "Features"], ["#tech", "Tech Stack"], ["#contact", "Contact"]].map(
             ([href, label]) => (
               <a
@@ -204,7 +205,11 @@ const LandingPage = () => {
         </nav>
 
         {/* Desktop CTA */}
-        <div className="hidden md:flex items-center gap-3">
+        <div className="hidden lg:flex shrink-0 items-center gap-2 xl:gap-3">
+          <Link to="/stores" className="btn btn-ghost btn-sm font-semibold gap-2 whitespace-nowrap">
+            <StoreIcon className="size-4" />
+            Browse Stores
+          </Link>
           <Link to="/login" className="btn btn-ghost btn-sm font-semibold">
             Login
           </Link>
@@ -218,7 +223,7 @@ const LandingPage = () => {
 
         {/* Mobile menu toggle */}
         <button
-          className="md:hidden btn btn-ghost btn-sm"
+          className="lg:hidden btn btn-ghost btn-sm shrink-0"
           onClick={() => setMobileMenuOpen((p) => !p)}
           aria-label="Toggle menu"
         >
@@ -231,7 +236,7 @@ const LandingPage = () => {
 
         {/* Mobile dropdown */}
         {mobileMenuOpen && (
-          <div className="absolute top-full left-0 w-full bg-base-100/95 backdrop-blur-xl border-b border-base-content/10 shadow-xl p-5 flex flex-col gap-4 md:hidden">
+          <div className="absolute top-full left-0 w-full bg-base-100/95 backdrop-blur-xl border-b border-base-content/10 shadow-xl p-5 flex flex-col gap-4 lg:hidden">
             {[["#features", "Features"], ["#tech", "Tech Stack"], ["#contact", "Contact"]].map(
               ([href, label]) => (
                 <a
@@ -244,6 +249,14 @@ const LandingPage = () => {
                 </a>
               )
             )}
+            <Link
+              to="/stores"
+              onClick={() => setMobileMenuOpen(false)}
+              className="flex items-center gap-2 text-base-content/80 hover:text-primary font-medium transition-colors"
+            >
+              <StoreIcon className="size-4" />
+              Browse Stores
+            </Link>
             <div className="flex gap-3 pt-2 border-t border-base-content/10">
               <Link to="/login" onClick={() => setMobileMenuOpen(false)} className="btn btn-ghost btn-sm flex-1">Login</Link>
               <Link to="/signup" onClick={() => setMobileMenuOpen(false)} className="btn btn-primary btn-sm flex-1">Get Started</Link>

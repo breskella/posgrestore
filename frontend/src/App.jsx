@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { Routes, Route, Navigate } from "react-router-dom";
+import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import toast, { Toaster } from "react-hot-toast";
 import Navbar from "./components/Navbar";
 import LandingPage from "./pages/LandingPage";
@@ -8,6 +8,8 @@ import ProductPage from "./pages/ProductPage";
 import LoginPage from "./pages/LoginPage";
 import SignupPage from "./pages/SignupPage";
 import StoresPage from "./pages/StoresPage";
+import StorefrontPage from "./pages/StorefrontPage";
+import StoreProductDetailsPage from "./pages/StoreProductDetailsPage";
 import { useAuthStore } from "./store/useAuthStore";
 import ProfilePage from "./pages/ProfilePage";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
@@ -19,6 +21,8 @@ const getAuthenticatedHome = (user) => (isAdminRole(user) ? "/dashboard" : "/sto
 
 function App() {
   const { user, checkAuth, isInitializing, sessionError } = useAuthStore();
+  const location = useLocation();
+  const hasLandingPageHeader = !user && location.pathname === "/";
 
   useEffect(() => {
     checkAuth();
@@ -36,7 +40,7 @@ function App() {
         </div>
       ) : (
         <>
-          {user && <Navbar />}
+          {!hasLandingPageHeader && <Navbar />}
           <Routes>
             <Route path="/" element={!user ? <LandingPage /> : <Navigate to={getAuthenticatedHome(user)} replace />} />
             <Route
@@ -63,7 +67,9 @@ function App() {
                 )
               }
             />
-            <Route path="/stores" element={user ? <StoresPage /> : <Navigate to="/login" replace />} />
+            <Route path="/stores" element={<StoresPage />} />
+            <Route path="/stores/:slug/products/:productId" element={<StoreProductDetailsPage />} />
+            <Route path="/stores/:slug" element={<StorefrontPage />} />
             <Route path="/login" element={!user ? <LoginPage /> : <Navigate to={getAuthenticatedHome(user)} replace />} />
             <Route path="/signup" element={!user ? <SignupPage /> : <Navigate to={getAuthenticatedHome(user)} replace />} />
             <Route path="/profile" element={user ? <ProfilePage /> : <Navigate to="/login" replace />} />

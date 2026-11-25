@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { UserIcon, MailIcon, LockIcon, SaveIcon, ShieldCheckIcon, ArrowLeftIcon } from "lucide-react";
 import toast from "react-hot-toast";
@@ -8,24 +8,15 @@ import { useAuthStore } from "../store/useAuthStore";
 const ProfilePage = () => {
   const navigate = useNavigate();
   const { user, setUser } = useAuthStore();
-  const [formData, setFormData] = useState({
-    username: "",
-    email: "",
+  const [formData, setFormData] = useState(() => ({
+    username: user?.username || "",
+    email: user?.email || "",
     password: "",
     currentPassword: "",
-  });
+    storeDescription: user?.store?.description || "",
+    storeLogoUrl: user?.store?.logo_url || "",
+  }));
   const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    if (user) {
-      setFormData({
-        username: user.username || "",
-        email: user.email || "",
-        password: "",
-        currentPassword: "",
-      });
-    }
-  }, [user]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -44,13 +35,27 @@ const ProfilePage = () => {
         email: formData.email.trim(),
         currentPassword: formData.currentPassword,
         ...(formData.password ? { password: formData.password } : {}),
+        ...(user?.role === "store_admin"
+          ? {
+              storeDescription: formData.storeDescription,
+              storeLogoUrl: formData.storeLogoUrl,
+            }
+          : {}),
       };
 
       const response = await API.put("/api/users/profile", profileData);
 
       if (response.data.success) {
         setUser(response.data.data);
-        setFormData((current) => ({ ...current, ...response.data.data, password: "", currentPassword: "" }));
+        setFormData((current) => ({
+          ...current,
+          username: response.data.data.username,
+          email: response.data.data.email,
+          storeDescription: response.data.data.store?.description || "",
+          storeLogoUrl: response.data.data.store?.logo_url || "",
+          password: "",
+          currentPassword: "",
+        }));
         toast.success("Profile updated successfully");
       }
     } catch (error) {
@@ -102,6 +107,43 @@ const ProfilePage = () => {
               />
             </div>
           </div>
+
+          {user?.role === "store_admin" && (
+            <div className="border-t border-base-200 pt-5 space-y-5">
+              <div>
+                <h2 className="font-semibold">Storefront details</h2>
+                <p className="text-sm text-base-content/60">These details appear on your public store page.</p>
+              </div>
+              <div className="form-control">
+                <label className="label">
+                  <span className="label-text font-medium">Store Description</span>
+                </label>
+                <textarea
+                  className="textarea textarea-bordered min-h-24 w-full"
+                  maxLength={2000}
+                  value={formData.storeDescription}
+                  onChange={(e) => setFormData({ ...formData, storeDescription: e.target.value })}
+                  placeholder="Tell shoppers what makes your store special"
+                />
+              </div>
+              <div className="form-control">
+                <label className="label">
+                  <span className="label-text font-medium">Store Logo URL</span>
+                </label>
+                <input
+                  type="url"
+                  className="input input-bordered w-full"
+                  maxLength={2048}
+                  value={formData.storeLogoUrl}
+                  onChange={(e) => setFormData({ ...formData, storeLogoUrl: e.target.value })}
+                  placeholder="https://example.com/logo.png"
+                />
+                <label className="label">
+                  <span className="label-text-alt">Leave blank to use your store initials.</span>
+                </label>
+              </div>
+            </div>
+          )}
 
           <div className="form-control">
             <label className="label">

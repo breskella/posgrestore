@@ -13,6 +13,8 @@ const fetchUserWithStoreById = async (userId) => {
       s.id AS store_id,
       s.name AS store_name,
       s.slug AS store_slug,
+      s.description AS store_description,
+      s.logo_url AS store_logo_url,
       s.subscription_status,
       s.subscription_plan,
       s.subscription_expires_at
@@ -52,7 +54,14 @@ export const updateUserProfile = async (req, res) => {
       });
     }
 
-    const { username, email, password = "", currentPassword = "" } = req.body ?? {};
+    const {
+      username,
+      email,
+      password = "",
+      currentPassword = "",
+      storeDescription,
+      storeLogoUrl,
+    } = req.body ?? {};
 
     if (
       typeof username !== "string" || !username.trim() ||
@@ -70,6 +79,33 @@ export const updateUserProfile = async (req, res) => {
 
     if (typeof password !== "string" || (password.length > 0 && password.length < 8)) {
       return res.status(400).json({ success: false, message: "A new password must be at least 8 characters" });
+    }
+
+    if ((storeDescription !== undefined || storeLogoUrl !== undefined) && req.user.role !== "store_admin") {
+      return res.status(403).json({ success: false, message: "Only store admins can update store details" });
+    }
+
+    if (storeDescription !== undefined && (
+      typeof storeDescription !== "string" ||
+      storeDescription.length > 2000
+    )) {
+      return res.status(400).json({ success: false, message: "Store description must be 2000 characters or fewer" });
+    }
+
+    let normalizedStoreLogoUrl;
+    if (storeLogoUrl !== undefined) {
+      if (typeof storeLogoUrl !== "string" || storeLogoUrl.length > 2048) {
+        return res.status(400).json({ success: false, message: "Store logo URL must be 2048 characters or fewer" });
+      }
+      normalizedStoreLogoUrl = storeLogoUrl.trim();
+      if (normalizedStoreLogoUrl) {
+        try {
+          const parsedUrl = new URL(normalizedStoreLogoUrl);
+          if (!["http:", "https:"].includes(parsedUrl.protocol)) throw new Error("Unsupported protocol");
+        } catch {
+          return res.status(400).json({ success: false, message: "Store logo must be a valid HTTP or HTTPS URL" });
+        }
+      }
     }
 
     const userRecord = await sql`
@@ -127,6 +163,16 @@ export const updateUserProfile = async (req, res) => {
 
     if (result.length === 0) {
       return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    if (storeDescription !== undefined || storeLogoUrl !== undefined) {
+      await sql`
+        UPDATE stores
+        SET
+          description = CASE WHEN ${storeDescription !== undefined} THEN ${storeDescription ?? null} ELSE description END,
+          logo_url = CASE WHEN ${storeLogoUrl !== undefined} THEN ${normalizedStoreLogoUrl || null} ELSE logo_url END
+        WHERE owner_id = ${authenticatedUserId}
+      `;
     }
 
     const updatedProfile = await fetchUserWithStoreById(authenticatedUserId);

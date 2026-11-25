@@ -1,5 +1,5 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { ShoppingCartIcon, ShoppingBagIcon, LogOutIcon, UserIcon } from 'lucide-react';
+import { ShoppingCartIcon, ShoppingBagIcon, LogOutIcon, UserIcon, StoreIcon } from 'lucide-react';
 import ThemeSelector from './ThemeSelector';
 import { useAuthStore } from '../store/useAuthStore';
 import { useProductStore } from '../store/useProductStore';
@@ -27,15 +27,15 @@ function Navbar() {
     return (
         <div className="bg-base-100/80 backdrop-blur-lg border-b border-base-content/10 sticky top-0 z-50">
             <div className="max-w-7xl mx-auto">
-                <div className="navbar px-3 sm:px-6 min-h-[3.75rem] sm:min-h-[4rem] justify-between gap-2">
+                <div className="navbar px-3 sm:px-6 min-h-[3.75rem] sm:min-h-[4rem] justify-between gap-2 sm:gap-4">
                     {/* LOGO */}
-                    <div className="flex-1 lg:flex-none min-w-0">
-                        <Link to={homePath} className="hover:opacity-80 transition-opacity inline-flex items-center">
-                            <div className="flex items-center gap-1.5 sm:gap-2">
+                    <div className="flex-1 min-w-0">
+                        <Link to={homePath} className="hover:opacity-80 transition-opacity inline-flex min-w-0 items-center">
+                            <div className="flex min-w-0 items-center gap-1.5 sm:gap-2">
                                 <ShoppingCartIcon className="size-7 sm:size-8 md:size-9 text-primary shrink-0" />
                                 <span
-                                    className="font-semibold font-mono tracking-wider sm:tracking-widest text-lg sm:text-xl md:text-2xl 
-                                    bg-clip-text text-transparent bg-gradient-to-r from-primary to-secondary truncate"
+                                    className="whitespace-nowrap truncate font-semibold font-mono tracking-normal sm:tracking-wider md:tracking-widest text-base sm:text-lg md:text-2xl
+                                    bg-clip-text text-transparent bg-gradient-to-r from-primary to-secondary"
                                 >
                                     POSGRESTORE
                                 </span>
@@ -54,7 +54,7 @@ function Navbar() {
                     </div>
 
                     {/* RIGHT SECTION */}
-                    <div className="flex items-center gap-1.5 sm:gap-3 md:gap-4 shrink-0">
+                    <div className="flex shrink-0 items-center gap-1 sm:gap-2 md:gap-3">
                         {user && (
                             <Link
                                 to="/profile"
@@ -70,7 +70,21 @@ function Navbar() {
                             </Link>
                         )}
 
-                        <ThemeSelector />
+                        <Link to="/stores" className="btn btn-ghost btn-xs sm:btn-sm gap-1 sm:gap-1.5 shrink-0 whitespace-nowrap">
+                            <StoreIcon className="size-4" />
+                            <span className="hidden sm:inline">Browse Stores</span>
+                        </Link>
+
+                        {user?.role === 'store_admin' && user.store?.storeSlug && (
+                            <Link to={`/stores/${user.store.storeSlug}`} className="btn btn-outline btn-primary btn-xs sm:btn-sm gap-1 sm:gap-1.5 shrink-0 whitespace-nowrap">
+                                <StoreIcon className="size-4" />
+                                <span className="hidden md:inline">View My Storefront</span>
+                            </Link>
+                        )}
+
+                        <div className="shrink-0">
+                            <ThemeSelector />
+                        </div>
 
                         {isHomePage && isAdmin && (
                             <div className="indicator">
@@ -84,15 +98,21 @@ function Navbar() {
                             </div>
                         )}
 
-                        {/* Logout Button */}
-                        <button
-                            onClick={handleLogout}
-                            className="btn btn-xs sm:btn-sm btn-ghost text-error hover:bg-error/10 flex items-center gap-1 px-2"
-                            title="Logout"
-                        >
-                            <LogOutIcon className="size-4 sm:size-5" />
-                            <span className="hidden md:inline text-xs sm:text-sm">Logout</span>
-                        </button>
+                        {user ? (
+                            <button
+                                onClick={handleLogout}
+                                className="btn btn-xs sm:btn-sm btn-ghost text-error hover:bg-error/10 flex items-center gap-1 px-2"
+                                title="Logout"
+                            >
+                                <LogOutIcon className="size-4 sm:size-5" />
+                                <span className="hidden md:inline text-xs sm:text-sm">Logout</span>
+                            </button>
+                        ) : (
+                            <div className="flex shrink-0 items-center gap-0.5 sm:gap-1">
+                                <Link to="/login" className="btn btn-ghost btn-xs sm:btn-sm whitespace-nowrap px-2">Log in</Link>
+                                <Link to="/signup" className="btn btn-primary btn-xs sm:btn-sm whitespace-nowrap px-2">Sign up</Link>
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>

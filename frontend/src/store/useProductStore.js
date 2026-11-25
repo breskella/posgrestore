@@ -44,6 +44,7 @@ export const useProductStore = create((set, get) => ({
         name: "",
         price: "",
         category: "",
+        description: "",
         count: "",
         image: "",
     },
@@ -52,7 +53,7 @@ export const useProductStore = create((set, get) => ({
     setFormData: (formData) => set({ formData }),
 
     // Reset form data to default empty values including category and count
-    resetForm: () => set({ formData: { name: "", price: "", category: "", count: "", image: "" } }),
+    resetForm: () => set({ formData: { name: "", price: "", category: "", description: "", count: "", image: "" } }),
 
     // Add a new product to the inventory using FormData for image upload
     addProduct: async (e) => {
@@ -67,6 +68,7 @@ export const useProductStore = create((set, get) => ({
             formDataObj.append("name", formData.name);
             formDataObj.append("price", formData.price);
             formDataObj.append("category", formData.category);
+            formDataObj.append("description", formData.description || "");
             formDataObj.append("count", formData.count);
             if (formData.image) {
                 formDataObj.append("image", formData.image);
@@ -267,7 +269,7 @@ export const useProductStore = create((set, get) => ({
         set({
             loading: true,
             currentProduct: null,
-            formData: { name: "", price: "", category: "", count: "", image: "" },
+            formData: { name: "", price: "", category: "", description: "", count: "", image: "" },
             error: null,
         });
         try {
@@ -332,6 +334,7 @@ export const useProductStore = create((set, get) => ({
             formDataObj.append("name", formData.name);
             formDataObj.append("price", formData.price);
             formDataObj.append("category", formData.category);
+            formDataObj.append("description", formData.description || "");
             formDataObj.append("count", Number(formData.count));
             if (formData.image instanceof File) {
                 formDataObj.append("image", formData.image);

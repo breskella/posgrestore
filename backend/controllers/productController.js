@@ -21,7 +21,7 @@ const getOrderByClause = (sortBy) => {
   }
 };
 
-const buildProductFilters = ({ storeId = null, search = "", category = "All", minPrice, maxPrice }) => {
+const buildProductFilters = ({ storeId = null, search = "", category = "All", minPrice, maxPrice, inStockOnly = false }) => {
   const conditions = [];
   const params = [];
 
@@ -45,6 +45,10 @@ const buildProductFilters = ({ storeId = null, search = "", category = "All", mi
       params.push(normCat);
       conditions.push(`LOWER(p.category) = $${params.length}`);
     }
+  }
+
+  if (inStockOnly) {
+    conditions.push(`p."count" > 0`);
   }
 
   if (minPrice !== undefined && minPrice !== "" && minPrice !== null) {
@@ -72,7 +76,13 @@ const buildProductFilters = ({ storeId = null, search = "", category = "All", mi
 const resolvePublicStoreFilter = async (req) => {
   const rawSlug = typeof req.query.storeSlug === "string" ? req.query.storeSlug.trim().toLowerCase() : "";
   if (rawSlug) {
-    const stores = await sql`SELECT id FROM stores WHERE LOWER(slug) = ${rawSlug} LIMIT 1`;
+    const stores = await sql`
+      SELECT id
+      FROM stores
+      WHERE LOWER(slug) = ${rawSlug}
+        AND subscription_status IN ('trial', 'active')
+      LIMIT 1
+    `;
     if (!stores.length) {
       return { errorStatus: 404, errorMessage: "Store not found" };
     }
@@ -141,6 +151,7 @@ export const getProducts = async (req, res) => {
       category,
       minPrice: req.query.minPrice,
       maxPrice: req.query.maxPrice,
+      inStockOnly: req.query.inStockOnly === "true",
     });
 
     const orderByClause = getOrderByClause(sortBy);
@@ -152,6 +163,7 @@ export const getProducts = async (req, res) => {
         p.name,
         p.price,
         p.category,
+        p.description,
         p."count",
         p.image,
         p.image_public_id,
@@ -302,9 +314,11 @@ export const getProduct = async (req, res) => {
         p.category,
         p."count",
         p.image,
+        p.description,
         p.created_at,
         s.name AS store_name,
-        s.slug AS store_slug
+        s.slug AS store_slug,
+        s.subscription_status
       FROM products p
       LEFT JOIN stores s ON s.id = p.store_id
       WHERE p.id = ${parsedId}
@@ -316,6 +330,20 @@ export const getProduct = async (req, res) => {
     }
 
     const product = result[0];
+    if (typeof req.query.storeSlug === "string" && req.query.storeSlug.trim()) {
+      if (
+        product.store_slug?.toLowerCase() !== req.query.storeSlug.trim().toLowerCase() ||
+        !["trial", "active"].includes(product.subscription_status)
+      ) {
+        return res.status(404).json({ success: false, message: "Product not found" });
+      }
+    } else if (req.query.public === "true") {
+      return res.status(400).json({
+        success: false,
+        message: "A storeSlug is required for public product access",
+      });
+    }
+
     if (
       req.user?.role === "store_admin" &&
       req.store?.id &&
@@ -347,7 +375,7 @@ export const createProduct = async (req, res) => {
       });
     }
 
-    const { name, price, category = "General", count = 0 } = req.body ?? {};
+    const { name, price, category = "General", count = 0, description = "" } = req.body ?? {};
 
     const parsedPrice = Number(price);
     const parsedCount = Number(count);
@@ -364,6 +392,10 @@ export const createProduct = async (req, res) => {
       return res.status(400).json({ success: false, message: "Count must be a valid non-negative integer" });
     }
 
+    if (typeof description !== "string" || description.length > 10000) {
+      return res.status(400).json({ success: false, message: "Product description must be 10000 characters or fewer" });
+    }
+
     if (req.file?.buffer) {
       uploadedImage = await uploadProductImage(req.file.buffer);
     }
@@ -374,8 +406,8 @@ export const createProduct = async (req, res) => {
     const imagePublicId = uploadedImage?.public_id ?? null;
 
     const result = await sql`
-      INSERT INTO products (store_id, name, price, category, "count", image, image_public_id)
-      VALUES (${storeId}, ${String(name).trim()}, ${parsedPrice}, ${String(category).trim() || "General"}, ${parsedCount}, ${imageValue}, ${imagePublicId})
+      INSERT INTO products (store_id, name, price, category, description, "count", image, image_public_id)
+      VALUES (${storeId}, ${String(name).trim()}, ${parsedPrice}, ${String(category).trim() || "General"}, ${description.trim()}, ${parsedCount}, ${imageValue}, ${imagePublicId})
       RETURNING *
     `;
 
@@ -413,7 +445,7 @@ export const updateProduct = async (req, res) => {
     }
 
     const scopedStoreId = req.store?.id ? Number(req.store.id) : null;
-    const { name, price, category, count, image } = req.body ?? {};
+    const { name, price, category, count, image, description } = req.body ?? {};
 
     const existing = scopedStoreId !== null
       ? await sql`
@@ -439,6 +471,9 @@ export const updateProduct = async (req, res) => {
     const safeCategory = typeof category === "string" ? category.trim() : undefined;
     const safePrice = price !== undefined ? Number(price) : undefined;
     const safeCount = count !== undefined ? Number(count) : undefined;
+    const safeDescription = description !== undefined
+      ? (typeof description === "string" ? description.trim() : null)
+      : undefined;
 
     if (safeName !== undefined && !safeName) {
       return res.status(400).json({ success: false, message: "Product name cannot be empty" });
@@ -450,6 +485,10 @@ export const updateProduct = async (req, res) => {
 
     if (safeCount !== undefined && (!Number.isInteger(safeCount) || safeCount < 0)) {
       return res.status(400).json({ success: false, message: "Count must be a valid non-negative integer" });
+    }
+
+    if (safeDescription === null || (safeDescription !== undefined && safeDescription.length > 10000)) {
+      return res.status(400).json({ success: false, message: "Product description must be 10000 characters or fewer" });
     }
 
     if (req.file?.buffer) {
@@ -464,6 +503,7 @@ export const updateProduct = async (req, res) => {
       ...(safePrice !== undefined ? { price: safePrice } : {}),
       ...(safeCategory !== undefined ? { category: safeCategory || "General" } : {}),
       ...(safeCount !== undefined ? { count: safeCount } : {}),
+      ...(safeDescription !== undefined ? { description: safeDescription } : {}),
       ...(nextImage !== undefined ? { image: nextImage } : {}),
       ...(uploadedImage ? { image_public_id: uploadedImage.public_id } : {}),
     };

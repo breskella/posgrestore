@@ -62,6 +62,8 @@ export const formatStoreInfo = (row) => {
     subscriptionStatus: row.subscription_status,
     subscriptionPlan: row.subscription_plan ?? "free_trial",
     subscriptionExpiresAt: row.subscription_expires_at ?? null,
+    description: row.store_description ?? row.description ?? null,
+    logo_url: row.store_logo_url ?? row.logo_url ?? null,
   };
 };
 

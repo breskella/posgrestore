@@ -9,6 +9,8 @@ import {
   StoreIcon,
 } from "lucide-react";
 import API from "../axios";
+import { useCartStore } from "../store/useCartStore";
+import toast from "react-hot-toast";
 
 const PAGE_SIZE = 12;
 
@@ -48,6 +50,9 @@ function StorefrontPage() {
   const [productsError, setProductsError] = useState("");
   const [productsErrorKey, setProductsErrorKey] = useState("");
   const [loadedProductsKey, setLoadedProductsKey] = useState("");
+  const [addingProductId, setAddingProductId] = useState(null);
+  const [addedProductId, setAddedProductId] = useState(null);
+  const addItem = useCartStore((state) => state.addItem);
   const productsRequestKey = JSON.stringify([slug, debouncedSearch, category, inStockOnly, sort, page]);
 
   useEffect(() => {
@@ -127,6 +132,17 @@ function StorefrontPage() {
     setInStockOnly(false);
     setSort("newest");
     setPage(1);
+  };
+
+  const handleAddToCart = async (product) => {
+    setAddingProductId(product.id);
+    const result = await addItem({ ...product, store_id: store.id, store_name: store.name, store_slug: store.slug });
+    setAddingProductId(null);
+    if (result.success) {
+      setAddedProductId(product.id);
+      toast.success(`${product.name} added to cart`);
+      setTimeout(() => setAddedProductId((current) => current === product.id ? null : current), 1400);
+    }
   };
 
   const storeLoading = loadedStoreSlug !== slug;
@@ -266,9 +282,14 @@ function StorefrontPage() {
                     <p className="text-2xl font-bold text-primary mt-2">${Number(product.price).toFixed(2)}</p>
                     <div className="card-actions mt-auto pt-3">
                       <Link to={`/stores/${store.slug}/products/${product.id}`} className="btn btn-outline btn-sm flex-1">View Details</Link>
-                      <button type="button" className="btn btn-primary btn-sm flex-1" disabled title="Shopping cart is coming soon">
+                      <button
+                        type="button"
+                        className={`btn btn-sm flex-1 ${addedProductId === product.id ? "btn-success" : "btn-primary"}`}
+                        disabled={count <= 0 || addingProductId === product.id}
+                        onClick={() => handleAddToCart(product)}
+                      >
                         <ShoppingCartIcon className="size-4" />
-                        Add to Cart
+                        {addingProductId === product.id ? "Adding..." : addedProductId === product.id ? "Added" : "Add to Cart"}
                       </button>
                     </div>
                   </div>

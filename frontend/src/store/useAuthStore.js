@@ -1,6 +1,24 @@
 import { create } from "zustand";
 import API from "../axios";
 import toast from "react-hot-toast";
+import { useCartStore } from "./useCartStore";
+
+const synchronizeCart = async (user) => {
+  try {
+    await useCartStore.getState().onAuthenticated(user);
+  } catch (error) {
+    console.error("Could not synchronize cart after authentication:", error);
+    toast.error("You are signed in, but your cart could not be synchronized.");
+  }
+};
+
+const resetCartForGuest = async () => {
+  try {
+    useCartStore.getState().onLoggedOut();
+  } catch (error) {
+    console.error("Could not reset cart after logout:", error);
+  }
+};
 
 try {
   localStorage.removeItem("token");
@@ -25,15 +43,18 @@ export const useAuthStore = create((set) => ({
         throw new Error("The session response did not include a user");
       }
       set({ user: response.data.data, sessionError: null });
+      await synchronizeCart(response.data.data);
     } catch (error) {
       if (error.response?.status === 401) {
         set({ user: null, sessionError: null });
+        await resetCartForGuest();
       } else {
         console.error("Could not verify the current session:", error);
         set({
           user: null,
           sessionError: "Could not verify your session. Please try again.",
         });
+        await resetCartForGuest();
       }
     } finally {
       set({ isInitializing: false });
@@ -48,6 +69,7 @@ export const useAuthStore = create((set) => ({
       const data = res.data;
 
       set({ user: data.data, isLoading: false, sessionError: null });
+      await synchronizeCart(data.data);
       toast.success("Account created successfully");
       return { success: true, user: data.data };
     } catch (error) {
@@ -66,6 +88,7 @@ export const useAuthStore = create((set) => ({
       const data = res.data;
 
       set({ user: data.data, isLoading: false, sessionError: null });
+      await synchronizeCart(data.data);
       toast.success("Logged in successfully");
       return { success: true, user: data.data };
     } catch (error) {
@@ -78,6 +101,7 @@ export const useAuthStore = create((set) => ({
 
   logout: async () => {
     set({ user: null });
+    await resetCartForGuest();
     try {
       await API.post("/api/auth/logout");
       return { success: true };

@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { ArrowLeftIcon, PackageCheckIcon, StoreIcon } from "lucide-react";
+import { ArrowLeftIcon, PackageCheckIcon, ShoppingCartIcon, StoreIcon } from "lucide-react";
 import API from "../axios";
+import toast from "react-hot-toast";
+import { useCartStore } from "../store/useCartStore";
 
 function StoreProductDetailsPage() {
   const { slug, productId } = useParams();
@@ -9,6 +11,9 @@ function StoreProductDetailsPage() {
   const [error, setError] = useState("");
   const [errorRequestKey, setErrorRequestKey] = useState("");
   const [loadedRequestKey, setLoadedRequestKey] = useState("");
+  const [adding, setAdding] = useState(false);
+  const [added, setAdded] = useState(false);
+  const addItem = useCartStore((state) => state.addItem);
   const requestKey = `${slug}:${productId}`;
 
   useEffect(() => {
@@ -56,6 +61,16 @@ function StoreProductDetailsPage() {
 
   const count = Number(product.count || 0);
   const description = product.description?.trim();
+  const handleAddToCart = async () => {
+    setAdding(true);
+    const result = await addItem(product, 1);
+    setAdding(false);
+    if (result.success) {
+      setAdded(true);
+      toast.success(`${product.name} added to cart`);
+      setTimeout(() => setAdded(false), 1400);
+    }
+  };
 
   return (
     <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-7 sm:py-10">
@@ -93,8 +108,9 @@ function StoreProductDetailsPage() {
                 {description || "The store has not provided additional product specifications."}
               </p>
             </section>
-            <button type="button" className="btn btn-primary mt-5" disabled title="Shopping cart is coming soon">
-              Add to Cart
+            <button type="button" className={`btn mt-5 ${added ? "btn-success" : "btn-primary"}`} disabled={count <= 0 || adding} onClick={handleAddToCart}>
+              <ShoppingCartIcon className="size-4" />
+              {adding ? "Adding..." : added ? "Added" : "Add to Cart"}
             </button>
           </div>
         </div>

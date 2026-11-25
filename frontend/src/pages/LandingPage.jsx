@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import emailjs from "@emailjs/browser";
 import toast from "react-hot-toast";
+import { useCartStore } from "../store/useCartStore";
 
 
 /* ─── Tiny scroll-reveal hook ─── */
@@ -131,6 +132,7 @@ const LandingPage = () => {
   const [loading, setLoading] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const { totalItems: cartCount, setDrawerOpen } = useCartStore();
 
   useEffect(() => {
     const handleScroll = () => setIsScrolled(window.scrollY > 24);
@@ -206,6 +208,15 @@ const LandingPage = () => {
 
         {/* Desktop CTA */}
         <div className="hidden lg:flex shrink-0 items-center gap-2 xl:gap-3">
+          <button
+            type="button"
+            className="btn btn-ghost btn-square btn-sm indicator"
+            aria-label={`Open shopping cart, ${cartCount} items`}
+            onClick={() => setDrawerOpen(true)}
+          >
+            <ShoppingCartIcon className="size-5" />
+            <span className="badge badge-xs badge-primary indicator-item">{cartCount}</span>
+          </button>
           <Link to="/stores" className="btn btn-ghost btn-sm font-semibold gap-2 whitespace-nowrap">
             <StoreIcon className="size-4" />
             Browse Stores
@@ -222,6 +233,15 @@ const LandingPage = () => {
         </div>
 
         {/* Mobile menu toggle */}
+        <button
+          type="button"
+          className="lg:hidden btn btn-ghost btn-square btn-sm indicator shrink-0"
+          aria-label={`Open shopping cart, ${cartCount} items`}
+          onClick={() => setDrawerOpen(true)}
+        >
+          <ShoppingCartIcon className="size-5" />
+          <span className="badge badge-xs badge-primary indicator-item">{cartCount}</span>
+        </button>
         <button
           className="lg:hidden btn btn-ghost btn-sm shrink-0"
           onClick={() => setMobileMenuOpen((p) => !p)}

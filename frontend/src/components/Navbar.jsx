@@ -1,20 +1,16 @@
-import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { ShoppingCartIcon, ShoppingBagIcon, LogOutIcon, UserIcon, StoreIcon } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { ShoppingCartIcon, LogOutIcon, UserIcon, StoreIcon } from 'lucide-react';
 import ThemeSelector from './ThemeSelector';
 import { useAuthStore } from '../store/useAuthStore';
-import { useProductStore } from '../store/useProductStore';
+import { useCartStore } from '../store/useCartStore';
 import toast from 'react-hot-toast';
 
 function Navbar() {
-    const location = useLocation();
     const navigate = useNavigate();
     const { logout, user } = useAuthStore();
     const isAdmin = user?.role === 'store_admin' || user?.role === 'super_admin';
     const homePath = user ? (isAdmin ? '/dashboard' : '/stores') : '/';
-    const isHomePage = location.pathname === '/' || location.pathname === '/dashboard';
-    
-    // Fetch products and pagination details from the global product store
-    const { products, pagination } = useProductStore();
+    const { totalItems: cartCount, setDrawerOpen } = useCartStore();
 
     const handleLogout = async () => {
         const result = await logout();
@@ -75,6 +71,16 @@ function Navbar() {
                             <span className="hidden sm:inline">Browse Stores</span>
                         </Link>
 
+                        <button
+                            type="button"
+                            className="btn btn-ghost btn-square btn-sm sm:btn-md indicator shrink-0"
+                            aria-label={`Open shopping cart, ${cartCount} items`}
+                            onClick={() => setDrawerOpen(true)}
+                        >
+                            <ShoppingCartIcon className="size-5" />
+                            <span className="badge badge-xs badge-primary indicator-item">{cartCount}</span>
+                        </button>
+
                         {user?.role === 'store_admin' && user.store?.storeSlug && (
                             <Link to={`/stores/${user.store.storeSlug}`} className="btn btn-outline btn-primary btn-xs sm:btn-sm gap-1 sm:gap-1.5 shrink-0 whitespace-nowrap">
                                 <StoreIcon className="size-4" />
@@ -85,18 +91,6 @@ function Navbar() {
                         <div className="shrink-0">
                             <ThemeSelector />
                         </div>
-
-                        {isHomePage && isAdmin && (
-                            <div className="indicator">
-                                <div className="p-1.5 sm:p-2 rounded-full hover:bg-base-200 transition-colors cursor-pointer">
-                                    <ShoppingBagIcon className="size-4 sm:size-5" />
-                                    {/* Display real total products count from pagination or fallback to products length */}
-                                    <span className="badge badge-xs sm:badge-sm badge-primary indicator-item">
-                                        {pagination?.totalProducts || products.length}
-                                    </span>
-                                </div>
-                            </div>
-                        )}
 
                         {user ? (
                             <button

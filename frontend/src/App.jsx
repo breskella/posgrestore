@@ -15,6 +15,8 @@ import ProfilePage from "./pages/ProfilePage";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import ConfirmResetPage from "./pages/ConfirmResetPage";
 import ResetPasswordPage from "./pages/ResetPasswordPage";
+import CartPage from "./pages/CartPage";
+import CartDrawer from "./components/CartDrawer";
 
 const isAdminRole = (user) => user?.role === "store_admin" || user?.role === "super_admin";
 const getAuthenticatedHome = (user) => (isAdminRole(user) ? "/dashboard" : "/stores");
@@ -68,6 +70,7 @@ function App() {
               }
             />
             <Route path="/stores" element={<StoresPage />} />
+            <Route path="/cart" element={<CartPage />} />
             <Route path="/stores/:slug/products/:productId" element={<StoreProductDetailsPage />} />
             <Route path="/stores/:slug" element={<StorefrontPage />} />
             <Route path="/login" element={!user ? <LoginPage /> : <Navigate to={getAuthenticatedHome(user)} replace />} />
@@ -77,6 +80,7 @@ function App() {
             <Route path="/confirm-password-reset/:token" element={<ConfirmResetPage />} />
             <Route path="/reset-password/:token" element={<ResetPasswordPage />} />
           </Routes>
+          <CartDrawer />
         </>
       )}
 

@@ -10,6 +10,7 @@ import productRoutes from "./routes/productRoutes.js";
 import authRoutes from "./routes/authRoutes.js";
 import userRoutes from "./routes/userRoutes.js";
 import storeRoutes from "./routes/storeRoutes.js";
+import cartRoutes from "./routes/cartRoutes.js";
 import { getActivityLogs } from "./controllers/productController.js";
 import { protectRoute, requireRole, attachStoreContext } from "./middleware/authMiddleware.js";
 import { generateUniqueStoreSlug } from "./lib/storeUtils.js";
@@ -159,6 +160,7 @@ app.use("/api/products", productRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/stores", storeRoutes);
+app.use("/api/cart", cartRoutes);
 app.get("/api/logs", protectRoute, requireRole("store_admin", "super_admin"), attachStoreContext, getActivityLogs);
 
 async function initDB() {
@@ -258,6 +260,27 @@ async function initDB() {
             await sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS image_public_id TEXT`;
             await sql`UPDATE products SET count = 0 WHERE count IS NULL`;
             await sql`ALTER TABLE products ALTER COLUMN count SET NOT NULL`;
+
+            await sql`
+                CREATE TABLE IF NOT EXISTS carts (
+                    id SERIAL PRIMARY KEY,
+                    user_id INTEGER NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+                    store_id INTEGER REFERENCES stores(id) ON DELETE SET NULL,
+                    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+                )
+            `;
+            await sql`
+                CREATE TABLE IF NOT EXISTS cart_items (
+                    id SERIAL PRIMARY KEY,
+                    cart_id INTEGER NOT NULL REFERENCES carts(id) ON DELETE CASCADE,
+                    product_id INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+                    quantity INTEGER NOT NULL CHECK (quantity > 0),
+                    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE (cart_id, product_id)
+                )
+            `;
+            await sql`CREATE INDEX IF NOT EXISTS cart_items_cart_id_idx ON cart_items (cart_id)`;
 
             // Clean up any legacy heavy Base64 images that cause socket timeout / 500 payload errors
             await sql`
